@@ -18,9 +18,12 @@
     {% set st = {'active': _('Active'), 'trialing': _('Active'), 'past_due': _('Payment failed: update your card'), 'canceled': _('Cancelled'), 'unpaid': _('Unpaid'), 'incomplete': _('Waiting for payment'), 'incomplete_expired': _('Expired'), 'paused': _('Paused')} %}
     <span class="tag {{ 'ok' if org.billing_status in ('active','trialing') else 'warn' }}">{{ st.get(org.billing_status, org.billing_status) }}</span>
     {% if org.current_period_end %}<p style="margin:6px 0 0" class="hint">{{ _('Current period ends {d}.', d=org.current_period_end.strftime('%d/%m/%Y')) }}</p>{% endif %}
-    {% if org.stripe_customer_id %}
-    <form method="post" action="/app/billing/portal" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Manage subscription, card and invoices') }}</button></form>
-    {% endif %}
+  {% endif %}
+  {% if org.stripe_customer_id and user.is_owner %}
+    <div class="row" style="margin-top:12px">
+      <form method="post" action="/app/billing/portal"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Manage subscription, card and invoices') }}</button></form>
+      <form method="post" action="/app/billing/sync"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost small">{{ _('Refresh status') }}</button></form>
+    </div>
   {% endif %}
   <p class="hint" style="margin:10px 0 0">{{ _('Seats: {n}.', n=plan.seats) }}{% if settings.ai_enabled %} {{ _('Claude drafts this month: {u} of {n}.', u=ai_used, n=plan.ai_per_month) }}{% endif %}</p>
 </div>

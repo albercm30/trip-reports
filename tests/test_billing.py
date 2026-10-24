@@ -85,3 +85,67 @@ def test_checkout_without_price_shows_message(owner):
 def test_billing_page_renders(owner):
     page = owner.get("/app/billing").text
     assert "Free trial" in page and "Choose a plan" in page
+
+
+def test_webhook_works_at_common_alternative_addresses(owner):
+    org = _org()
+    for i, path in enumerate(["/billing/webhook/", "/app/billing/webhook", "/stripe/webhook", "/webhook"]):
+        body, sig = _signed({"id": f"evt_alias_{i}", "type": "customer.subscription.updated",
+                             "data": {"object": _sub(org.id)}})
+        r = owner.post(path, content=body, headers={"stripe-signature": sig})
+        assert r.status_code == 200, path
+    assert _org().billing_status == "active"
+
+
+def test_wrong_post_address_gives_readable_json(owner):
+    r = owner.post("/billing/webhooks", content="{}", headers={"accept": "*/*; q=0.5, application/json"})
+    assert r.status_code == 404 and r.json()["path"] == "/billing/webhooks"
+
+
+class _FakeObj(dict):
+    def to_dict(self):
+        return dict(self)
+
+
+class _FakeClient:
+    def __init__(self, org_id):
+        sub = _sub(org_id)
+        sub["metadata"] = {}
+        self.sub = sub
+        outer = self
+
+        class Sessions:
+            def retrieve(self, sid, params=None):
+                assert params == {"expand": ["subscription"]}
+                return _FakeObj({"id": sid, "client_reference_id": org_id, "customer": "cus_9", "subscription": outer.sub})
+
+        class Subs:
+            def list(self, params=None):
+                return _FakeObj({"data": [{**outer.sub, "status": "past_due"}]})
+
+            def retrieve(self, sid):
+                return _FakeObj(outer.sub)
+
+        class V1:
+            checkout = type("C", (), {"sessions": Sessions()})()
+            subscriptions = Subs()
+        self.v1 = V1()
+
+
+def test_return_from_checkout_activates_plan_without_webhook(owner, monkeypatch):
+    org = _org()
+    monkeypatch.setattr(billing, "client", lambda: _FakeClient(org.id))
+    page = owner.get("/app/billing?done=1&session_id=cs_test_123").text
+    org = _org()
+    assert org.plan == "starter" and org.billing_status == "active" and org.stripe_customer_id == "cus_1"
+    assert "Active" in page
+    # someone else's session id is ignored
+    other = _FakeClient("someone-else")
+    monkeypatch.setattr(billing, "client", lambda: other)
+    with SessionLocal() as db:
+        o = db.get(Organization, org.id)
+        assert billing.sync_checkout(db, o, "cs_x") is False
+    # refresh button re-reads Stripe
+    monkeypatch.setattr(billing, "client", lambda: _FakeClient(org.id))
+    r = owner.post_form("/app/billing/sync")
+    assert r.status_code == 303 and _org().billing_status == "past_due"

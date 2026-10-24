@@ -83,8 +83,9 @@ def create_app() -> FastAPI:
             if wants_json(request):
                 return JSONResponse({"ok": False, "error": "csrf"}, status_code=403)
             return render(request, "public/error.html", {"code": 403, "csrf": True}, status=403)
-        if wants_json(request):
-            return JSONResponse({"ok": False, "error": exc.status_code}, status_code=exc.status_code)
+        if wants_json(request) or (request.method != "GET" and "text/html" not in request.headers.get("accept", "")):
+            return JSONResponse({"ok": False, "error": exc.status_code, "method": request.method,
+                                 "path": request.url.path}, status_code=exc.status_code)
         if exc.status_code in (404, 405):
             return render(request, "public/error.html", {"code": 404}, status=404)
         return render(request, "public/error.html", {"code": exc.status_code}, status=exc.status_code)

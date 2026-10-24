@@ -55,7 +55,8 @@ def checkout_url(org: Organization, email: str, plan: str, interval: str) -> str
         "allow_promotion_codes": True,
         "billing_address_collection": "required",
         "tax_id_collection": {"enabled": True},
-        "success_url": f"{settings.app_url}/app/billing?done=1",
+        # Stripe fills in {CHECKOUT_SESSION_ID}; the billing page uses it to confirm the plan right away.
+        "success_url": f"{settings.app_url}/app/billing?done=1&session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{settings.app_url}/app/billing",
     }
     if org.stripe_customer_id:
@@ -108,6 +109,36 @@ def apply_subscription(db: Session, sub: dict) -> Organization | None:
         org.plan = plan
     org.current_period_end = _ts(sub.get("current_period_end") or item.get("current_period_end"))
     return org
+
+
+def sync_checkout(db: Session, org: Organization, session_id: str) -> bool:
+    """Confirm a finished checkout straight from Stripe, so the plan shows as active even if the
+    webhook is slow or misconfigured. Only applies sessions that belong to this organization."""
+    s = _d(client().v1.checkout.sessions.retrieve(session_id, params={"expand": ["subscription"]}))
+    if (s.get("client_reference_id") or (s.get("metadata") or {}).get("org_id")) != org.id:
+        return False
+    if s.get("customer"):
+        org.stripe_customer_id = s["customer"]
+    sub = s.get("subscription")
+    if isinstance(sub, str):
+        sub = _d(client().v1.subscriptions.retrieve(sub))
+    if sub:
+        apply_subscription(db, {**sub, "metadata": {**(sub.get("metadata") or {}), "org_id": org.id}})
+    db.commit()
+    return bool(sub)
+
+
+def sync_customer(db: Session, org: Organization) -> bool:
+    """Re-read this organization's latest subscription from Stripe."""
+    if not org.stripe_customer_id:
+        return False
+    subs = _d(client().v1.subscriptions.list(params={"customer": org.stripe_customer_id, "status": "all", "limit": 1}))
+    data = subs.get("data") or []
+    if not data:
+        return False
+    apply_subscription(db, {**data[0], "metadata": {**(data[0].get("metadata") or {}), "org_id": org.id}})
+    db.commit()
+    return True
 
 
 def handle_event(db: Session, payload: bytes, sig_header: str) -> str:
