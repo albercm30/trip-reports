@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="{{ R.lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="csrf" content="{{ csrf }}">
+<title>{{ trip.title or R.t.trip_report }}{% if rorg.name %} · {{ rorg.name }}{% endif %}</title>
+<link rel="icon" href="/static/img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/report.css?v=1">
+<style>.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}</style>
+</head>
+<body class="report-page">
+<div class="rpt-actions">
+  {% if example %}
+    <span>{{ _('This is an example report.') }} <a href="/signup">{{ _('Make your own') }}</a> · <a href="?rl={{ 'en' if R.lang == 'es' else 'es' }}">{{ 'English' if R.lang == 'es' else 'Español' }}</a></span>
+  {% elif print %}
+    <a href="/app/trips/{{ trip.id }}?tab=report">← {{ _('Back') }}</a>
+  {% else %}
+    <span></span>
+  {% endif %}
+  <button type="button" data-print>{{ R.t.pdf }}</button>
+</div>
+{% include "report/_article.html" %}
+<script type="application/json" id="i18n">{}</script>
+<script src="/static/js/app.js?v=1" defer></script>
+</body>
+</html>

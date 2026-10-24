@@ -1,0 +1,39 @@
+# Render Blueprint: New > Blueprint in the Render dashboard, then pick this repository.
+# Set the values marked "sync: false" in the dashboard after the first deploy.
+services:
+  - type: web
+    name: trip-reports
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: APP_URL
+        sync: false            # e.g. https://trip-reports.onrender.com
+      - key: DATABASE_URL
+        sync: false            # a Postgres URL, e.g. from Neon's free tier
+      - key: STORAGE
+        value: db              # photos in Postgres: the free web service has no persistent disk
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_STARTER_MONTHLY
+        sync: false
+      - key: STRIPE_PRICE_STARTER_YEARLY
+        sync: false
+      - key: STRIPE_PRICE_PRO_MONTHLY
+        sync: false
+      - key: STRIPE_PRICE_PRO_YEARLY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false            # optional: leave empty to use the free drafter
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: LEGAL_NAME
+        sync: false
+      - key: LEGAL_ADDRESS
+        sync: false

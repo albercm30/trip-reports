@@ -1,0 +1,43 @@
+{% extends "app/base_app.html" %}
+{% block title %}{{ _('Team') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<h1 class="page">{{ _('Team') }}</h1>
+<p class="lede">{{ _('{used} of {seats} seats used on your plan.', used=used, seats=seats) }}</p>
+<div class="panel">
+  <table class="list">
+    <thead><tr><th>{{ _('Name') }}</th><th>{{ _('Role') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for m in members %}
+      <tr>
+        <td><strong>{{ m.name or '—' }}</strong><br><span class="hint">{{ m.email }}</span></td>
+        <td>{{ _('Owner') if m.is_owner else _('Guide') }}</td>
+        <td style="text-align:right">{% if user.is_owner and m.id != user.id %}<form method="post" action="/app/team/{{ m.id }}/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost danger" data-confirm="{{ _('Remove {name} from the team? Their trips stay.', name=m.name or m.email) }}">{{ _('Remove') }}</button></form>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if user.is_owner %}
+<h2 class="sec">{{ _('Invite a guide') }}</h2>
+{% if new_link %}
+  <div class="panel" style="border-color:var(--accent)">
+    <strong>{{ _('Send this link to your guide') }}</strong>
+    <p class="hint" style="margin:4px 0 10px">{{ _('It works once, for 7 days. Copy it now: for security it won\'t be shown again.') }}</p>
+    <div class="copyrow"><input type="text" id="invite-url" readonly value="{{ new_link }}" aria-label="{{ _('Invite link') }}"><button type="button" class="btn small" data-copy="invite-url">{{ _('Copy') }}</button></div>
+  </div>
+{% endif %}
+<form method="post" action="/app/team/invite" class="panel" {% if new_link %}style="margin-top:12px"{% endif %}>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="field"><span>{{ _('Their email (optional)') }}</span><input type="email" name="email" autocomplete="off"><small>{{ _('If email is set up, we send them the link. Either way you get a link to share.') }}</small></label>
+  <button class="btn primary" {% if used >= seats %}disabled{% endif %}>{{ _('Create invite link') }}</button>
+  {% if used >= seats %}<p class="hint">{{ _('All seats are in use.') }} <a href="/app/billing">{{ _('Upgrade your plan') }}</a></p>{% endif %}
+</form>
+{% if invites %}
+<h2 class="sec">{{ _('Pending invites') }}</h2>
+<div class="panel"><table class="list"><tbody>
+  {% for i in invites %}<tr><td>{{ i.email or _('Link only') }}<br><span class="hint">{{ _('Expires {d}', d=i.expires_at.strftime('%d/%m/%Y')) }}</span></td><td style="text-align:right"><form method="post" action="/app/team/invites/{{ i.id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost">{{ _('Cancel') }}</button></form></td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endif %}
+{% endblock %}

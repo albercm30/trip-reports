@@ -1,0 +1,73 @@
+{# Guest-facing report. Needs: trip, rorg (organization), R (build_report), media_qs ("" or "?s=token") #}
+{% set L = R.t %}
+<article class="rpt" lang="{{ R.lang }}" style="--acc:{{ rorg.accent or '#2E6A5C' }}">
+  <div class="r-top">
+    {% if rorg.logo_key %}<img class="r-logo" src="/media/{{ rorg.logo_key }}{{ media_qs }}" alt="{{ rorg.name }}">{% endif %}
+    {% if rorg.name %}<p class="r-co">{{ rorg.name }}</p>{% endif %}
+  </div>
+  <h1>{{ trip.title or L.trip_report }}</h1>
+  {% set meta = [trip.location, R.range]|select|join(', ') %}
+  {% if meta %}<p class="r-meta">{{ meta }}</p>{% endif %}
+  {% set who = [(L.guided_by ~ ' ' ~ trip.guides) if trip.guides else '', (trip.guests ~ ' ' ~ L.guests) if trip.guests else '']|select|join('. ') %}
+  {% if who %}<p class="r-meta">{{ who }}</p>{% endif %}
+
+  {% if trip.days %}
+  <div class="r-nums">
+    <div><b>{{ trip.days|length }}</b>{{ L.days }}</div>
+    <div><b>{{ R.species_count }}</b>{{ L.total }}</div>
+    {% if trip.guests %}<div><b>{{ trip.guests }}</b>{{ L.guests }}</div>{% endif %}
+  </div>
+  {% if R.highlights %}<p class="r-hl"><strong>{{ L.highlights }}:</strong> {{ R.highlights|map(attribute='name')|join(', ') }}</p>{% endif %}
+  {% endif %}
+
+  {% if trip.intro %}<div class="r-intro">{{ trip.intro|nl2p }}</div>{% endif %}
+
+  {% for d in trip.days %}
+  <section class="r-day">
+    <div class="r-dayhead">
+      <span class="r-dn">{{ loop.index }}</span>
+      <h2>{{ d.place or (L.day ~ ' ' ~ loop.index) }}<small>{{ L.day }} {{ loop.index }}{% if d.date %}, {{ R.day_label(d.date) }}{% endif %}</small></h2>
+    </div>
+    {{ d.narrative|nl2p }}
+    {% if d.photos %}
+    <div class="r-photos">
+      {% for p in d.photos %}
+      <figure><img src="/media/{{ p.storage_key }}{{ media_qs }}" alt="{{ p.caption }}" loading="lazy">{% if p.caption %}<figcaption>{{ p.caption }}</figcaption>{% endif %}</figure>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  {% if R.rows %}
+  <h2 class="r-sec">{{ L.tally }}</h2>
+  <p class="r-sub">{{ R.species_count }} {{ L.total }}. {{ L.tally_sub }}</p>
+  <div class="r-tscroll"><table>
+    <thead><tr><th class="nm" scope="col">{{ L.species }}</th>{% for d in trip.days %}<th scope="col">{{ L.day[:1] }}{{ loop.index }}</th>{% endfor %}<th scope="col">{{ L.max }}</th></tr></thead>
+    <tbody>
+    {% for gname, grows in R.groups %}
+      {% if R.show_groups %}<tr class="grp"><td colspan="{{ trip.days|length + 2 }}">{{ gname }}</td></tr>{% endif %}
+      {% for r in grows %}
+      <tr>
+        <td class="nm">{{ r.name }}{% if r.star %} <span class="st" aria-label="{{ L.highlights }}">★</span>{% endif %}{% if r.unsure %} <span class="q">?</span>{% endif %}{% if r.sci %}<i>{{ r.sci }}</i>{% endif %}</td>
+        {% for d in trip.days %}{% set c = r.cells.get(loop.index0) %}
+          {% if not c %}<td></td>
+          {% elif c.heard and not c.count %}<td class="c h">{{ L.heard }}</td>
+          {% elif not c.count %}<td class="c x"><span class="sr">✓</span></td>
+          {% else %}<td class="c">{{ c.count }}</td>{% endif %}
+        {% endfor %}
+        <td>{{ r.max or '' }}</td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% set keys = [L.tick_key if R.has_tick else '', L.heard_key if R.has_heard else '', L.unsure_key if R.has_unsure else '']|select|list %}
+  {% if keys %}<p class="r-key">{{ keys|join('. ') }}.</p>{% endif %}
+  {% endif %}
+
+  {% if trip.summary %}<section class="r-day">{{ trip.summary|nl2p }}</section>{% endif %}
+  {% if rorg.signoff %}<p class="r-sign">{{ rorg.signoff }}</p>{% endif %}
+  {% set foot = [rorg.name, rorg.website]|select|join(' · ') %}
+  {% if foot or rorg.show_credit %}<footer class="r-foot"><span>{{ foot }}</span>{% if rorg.show_credit %}<span>{{ L.made }}</span>{% endif %}</footer>{% endif %}
+</article>

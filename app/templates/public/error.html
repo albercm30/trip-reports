@@ -1,0 +1,17 @@
+{% extends "public/base_public.html" %}
+{% block title %}{{ app_name }}{% endblock %}
+{% block main %}
+<div class="auth">
+  {% if code == 404 %}
+    <h1>{{ _('Page not found') }}</h1>
+    <p class="muted">{{ _('This page doesn\'t exist, or the link has been turned off.') }}</p>
+  {% elif code == 403 and csrf %}
+    <h1>{{ _('Please try that again') }}</h1>
+    <p class="muted">{{ _('The page was open for a long time, so we couldn\'t confirm the request was yours. Go back, reload the page and try again.') }}</p>
+  {% else %}
+    <h1>{{ _('Something went wrong') }}</h1>
+    <p class="muted">{{ _('We hit a problem showing this page. Try again in a moment.') }}</p>
+  {% endif %}
+  <p><a class="btn" href="{{ '/app' if user else '/' }}">{{ _('Go to the start') }}</a></p>
+</div>
+{% endblock %}

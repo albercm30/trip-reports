@@ -1,0 +1,46 @@
+{% extends "app/base_app.html" %}
+{% block title %}{{ _('Company') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<h1 class="page">{{ _('Your company') }}</h1>
+<p class="lede">{{ _('These details appear on every report.') }}{% if not user.is_owner %} {{ _('Only the account owner can change them.') }}{% endif %}</p>
+<form method="post" action="/app/settings" data-autosave>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="sr" tabindex="-1" aria-hidden="true">{{ _('Save') }}</button>
+  <fieldset {% if not user.is_owner %}disabled{% endif %} style="border:0;padding:0;margin:0">
+  <div class="panel">
+    <label class="field"><span>{{ _('Company name') }}</span><input type="text" name="name" value="{{ org.name }}" maxlength="120"></label>
+    <div class="grid2">
+      <label class="field"><span>{{ _('Report language') }}</span><select name="report_lang">{% for k, v in REPORT_LANGS.items() %}<option value="{{ k }}" {% if org.report_lang == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select><small>{{ _('Drafts and report labels use this language.') }}</small></label>
+      <label class="field"><span>{{ _('Writing style') }}</span><select name="tone">
+        <option value="warm" {% if org.tone == 'warm' %}selected{% endif %}>{{ _('Warm and personal') }}</option>
+        <option value="expert" {% if org.tone == 'expert' %}selected{% endif %}>{{ _('Expert and precise') }}</option>
+        <option value="lively" {% if org.tone == 'lively' %}selected{% endif %}>{{ _('Lively and fun') }}</option>
+      </select><small>{{ _('Used when drafting with Claude.') }}</small></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span>{{ _('Brand colour') }}</span><input type="color" name="accent" value="{{ org.accent }}"></label>
+      <label class="field"><span>{{ _('Website') }}</span><input type="text" name="website" value="{{ org.website }}" maxlength="200" placeholder="www.example.com"></label>
+    </div>
+    <label class="field" id="targets"><span>{{ _('Target species') }}</span><input type="text" name="targets" value="{{ org.targets }}" placeholder="{{ _('Iberian Lynx, Spanish Imperial Eagle, Eurasian Eagle-Owl') }}"><small>{{ _('The animals your guests come for, separated by commas. Insights shows how often you find them.') }}</small></label>
+    <label class="field"><span>{{ _('Sign-off') }}</span><textarea name="signoff" rows="3" placeholder="{{ _('Thank you for travelling with us.') }}&#10;Alberto">{{ org.signoff }}</textarea><small>{{ _('Goes at the end of every report, exactly as written.') }}</small></label>
+    <label class="check"><input type="checkbox" name="show_credit" value="1" {% if org.show_credit %}checked{% endif %}> <span>{{ _('Show “Report made with {app}” in the footer', app=app_name) }}</span></label>
+    <label class="check"><input type="checkbox" name="data_sharing" value="1" {% if org.data_sharing %}checked{% endif %}> <span>{{ _('Allow anonymised sighting data (species, date and area, never guests or notes) to be used for wildlife research and forecasts.') }}</span></label>
+  </div>
+  </fieldset>
+  <noscript><button class="btn primary" style="margin-top:12px">{{ _('Save') }}</button></noscript>
+</form>
+
+<h2 class="sec">{{ _('Logo') }}</h2>
+<div class="panel">
+  {% if org.logo_key %}<img src="/media/{{ org.logo_key }}" alt="{{ _('Your logo') }}" style="max-height:64px;margin-bottom:12px;background:#fff;padding:6px;border-radius:8px">{% endif %}
+  {% if user.is_owner %}
+  <form method="post" action="/app/settings/logo" enctype="multipart/form-data" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="file" accept="image/*" required aria-label="{{ _('Choose a logo') }}" style="max-width:100%">
+    <button class="btn small">{{ _('Upload logo') }}</button>
+  </form>
+  {% if org.logo_key %}<form method="post" action="/app/settings/logo/delete" style="margin-top:8px"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost danger">{{ _('Remove logo') }}</button></form>{% endif %}
+  <p class="hint" style="margin:8px 0 0">{{ _('PNG or JPG. It\'s shown on a white background at the top of each report.') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

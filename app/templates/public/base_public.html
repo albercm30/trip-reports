@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="bar"><div class="bar-in">
+  {% include "_brand.html" %}
+  <span class="grow"></span>
+  <span class="langs" aria-label="{{ _('Language') }}">{% for code, label in UI_LANGS.items() %}<a href="/lang/{{ code }}" aria-current="{{ 'true' if lang == code else 'false' }}" lang="{{ code }}">{{ code|upper }}</a>{% endfor %}</span>
+  {% if user %}
+    <a class="btn small primary" href="/app">{{ _('Open the app') }}</a>
+  {% else %}
+    <a class="btn small ghost" href="/login">{{ _('Log in') }}</a>
+    <a class="btn small primary" href="/signup">{{ _('Start free trial') }}</a>
+  {% endif %}
+</div></header>
+<main>{% block main %}{% endblock %}</main>
+<footer class="site"><div class="wide row" style="justify-content:space-between">
+  <span>© {{ app_name }}{% if settings.legal_name %} · {{ settings.legal_name }}{% endif %}</span>
+  <span class="row"><span class="langs">{% for code, label in UI_LANGS.items() %}<a href="/lang/{{ code }}" aria-current="{{ 'true' if lang == code else 'false' }}" lang="{{ code }}">{{ label }}</a>{% endfor %}</span><a href="/privacy">{{ _('Privacy') }}</a><a href="/terms">{{ _('Terms') }}</a>{% if settings.support_email %}<a href="mailto:{{ settings.support_email }}">{{ _('Contact') }}</a>{% endif %}</span>
+</div></footer>
+{% endblock %}

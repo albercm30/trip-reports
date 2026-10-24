@@ -1,0 +1,26 @@
+# Local run with Postgres: docker compose up --build, then open http://localhost:8000
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tripreports
+      POSTGRES_PASSWORD: tripreports
+      POSTGRES_DB: tripreports
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tripreports"]
+      interval: 3s
+      retries: 10
+  web:
+    build: .
+    ports: ["8000:8000"]
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://tripreports:tripreports@db:5432/tripreports
+      UPLOAD_DIR: /app/uploads
+    volumes: [uploads:/app/uploads]
+    depends_on:
+      db: {condition: service_healthy}
+volumes:
+  dbdata:
+  uploads:

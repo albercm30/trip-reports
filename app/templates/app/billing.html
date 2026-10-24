@@ -1,0 +1,52 @@
+{% extends "app/base_app.html" %}
+{% block title %}{{ _('Plan') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<h1 class="page">{{ _('Your plan') }}</h1>
+{% if done %}<p class="panel" style="border-color:var(--accent)">{{ _('Thank you! Your subscription is being activated. It can take a few seconds to show here.') }}</p>{% endif %}
+
+<div class="panel">
+  {% if org.plan == 'trial' %}
+    {% if trial_active %}
+      <strong>{{ _('Free trial') }}</strong>
+      <p style="margin:4px 0 0">{{ _('{n} days left. Everything is included while you try it.', n=trial_left) }}</p>
+    {% else %}
+      <strong>{{ _('Your trial has ended') }}</strong>
+      <p style="margin:4px 0 0">{{ _('Your trips are safe and readable. Choose a plan to keep creating and editing reports.') }}</p>
+    {% endif %}
+  {% else %}
+    <strong>{{ _('Starter') if org.plan == 'starter' else _('Pro') }}</strong>
+    {% set st = {'active': _('Active'), 'trialing': _('Active'), 'past_due': _('Payment failed: update your card'), 'canceled': _('Cancelled'), 'unpaid': _('Unpaid'), 'incomplete': _('Waiting for payment'), 'incomplete_expired': _('Expired'), 'paused': _('Paused')} %}
+    <span class="tag {{ 'ok' if org.billing_status in ('active','trialing') else 'warn' }}">{{ st.get(org.billing_status, org.billing_status) }}</span>
+    {% if org.current_period_end %}<p style="margin:6px 0 0" class="hint">{{ _('Current period ends {d}.', d=org.current_period_end.strftime('%d/%m/%Y')) }}</p>{% endif %}
+    {% if org.stripe_customer_id %}
+    <form method="post" action="/app/billing/portal" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Manage subscription, card and invoices') }}</button></form>
+    {% endif %}
+  {% endif %}
+  <p class="hint" style="margin:10px 0 0">{{ _('Seats: {n}.', n=plan.seats) }}{% if settings.ai_enabled %} {{ _('Claude drafts this month: {u} of {n}.', u=ai_used, n=plan.ai_per_month) }}{% endif %}</p>
+</div>
+
+{% if org.plan == 'trial' or org.billing_status in ('canceled', 'incomplete_expired', 'unpaid') %}
+<h2 class="sec">{{ _('Choose a plan') }}</h2>
+{% if not settings.billing_enabled or not available %}
+  <p class="error">{{ _('Payments aren\'t set up yet. Contact us to subscribe.') }}{% if settings.support_email %} <a href="mailto:{{ settings.support_email }}">{{ settings.support_email }}</a>{% endif %}</p>
+{% endif %}
+<div class="plans">
+  {% for key in ('starter', 'pro') %}{% set p = PLANS[key] %}
+  <div class="plan {% if key == 'pro' %}featured{% endif %}">
+    <h3>{{ _('Starter') if key == 'starter' else _('Pro') }}</h3>
+    <p class="price">€{{ p.month_eur }} <small>/ {{ _('month') }}</small></p>
+    <p class="hint" style="margin:0">{{ _('or €{y} a year (2 months free)', y=p.year_eur) }}</p>
+    <ul><li>{{ _('Unlimited trips and reports') }}</li><li>{{ _('Up to {n} guides', n=p.seats) }}</li><li>{{ _('Season insights') }}</li></ul>
+    {% if key in available %}
+    <form method="post" action="/app/billing/checkout" class="row">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="plan" value="{{ key }}">
+      {% if 'month' in intervals %}<button class="btn {{ 'primary' if key == 'pro' else '' }}" name="interval" value="month">{{ _('Monthly') }}</button>{% endif %}
+      {% if 'year' in intervals %}<button class="btn" name="interval" value="year">{{ _('Yearly') }}</button>{% endif %}
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+<p class="hint" style="margin-top:12px">{{ _('Payments are handled securely by Stripe. Prices exclude VAT where it applies. Cancel any time.') }}</p>
+{% endif %}
+{% endblock %}

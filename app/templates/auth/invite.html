@@ -1,0 +1,22 @@
+{% extends "public/base_public.html" %}
+{% block title %}{{ _('Join the team') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<div class="auth">
+  {% if not inv %}
+    <h1>{{ _('Invite not valid') }}</h1>
+    <p class="muted">{{ _('This invite has expired or was already used. Ask the account owner for a new link.') }}</p>
+  {% else %}
+    <h1>{{ _('Join {org}', org=iorg.name) }}</h1>
+    <p class="muted">{{ _('Create your account to write trip reports with the team.') }}</p>
+    {% if error %}<p class="error" role="alert">{{ _(error) }}</p>{% endif %}
+    <form method="post" action="/invite/{{ token }}" class="panel">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="field"><span>{{ _('Your name') }}</span><input type="text" name="name" value="{{ form.name or '' }}" required maxlength="120" autocomplete="name"></label>
+      <label class="field"><span>{{ _('Email') }}</span><input type="email" name="email" value="{{ form.email or '' }}" required autocomplete="email"></label>
+      <label class="field"><span>{{ _('Password') }}</span><input type="password" name="password" required minlength="10" autocomplete="new-password"><small>{{ _('At least 10 characters.') }}</small></label>
+      <p class="hint">{{ _('By joining you accept the') }} <a href="/terms" target="_blank">{{ _('terms') }}</a> {{ _('and the') }} <a href="/privacy" target="_blank">{{ _('privacy policy') }}</a>.</p>
+      <button class="btn primary block">{{ _('Join the team') }}</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

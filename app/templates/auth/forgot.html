@@ -1,0 +1,19 @@
+{% extends "public/base_public.html" %}
+{% block title %}{{ _('Reset password') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<div class="auth">
+  <h1>{{ _('Reset your password') }}</h1>
+  {% if sent %}
+    <p class="panel">{{ _('If there is an account with that email, we\'ve sent a link to reset the password. It works for 2 hours.') }}</p>
+    {% if dev_link %}<p class="error"><strong>{{ _('Development mode:') }}</strong> {{ _('email isn\'t set up, so here is the link:') }} <a href="{{ dev_link }}">{{ dev_link }}</a></p>{% endif %}
+  {% else %}
+    <p class="muted">{{ _('Enter your email and we\'ll send you a link.') }}</p>
+    <form method="post" action="/forgot" class="panel">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="field"><span>{{ _('Email') }}</span><input type="email" name="email" required autocomplete="email" autofocus></label>
+      <button class="btn primary block">{{ _('Send link') }}</button>
+    </form>
+  {% endif %}
+  <p class="hint" style="text-align:center;margin-top:14px"><a href="/login">{{ _('Back to log in') }}</a></p>
+</div>
+{% endblock %}

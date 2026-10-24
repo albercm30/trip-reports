@@ -1,0 +1,27 @@
+{% extends "public/base_public.html" %}
+{% block title %}{{ _('Terms') }} · {{ app_name }}{% endblock %}
+{% set who = settings.legal_name or '[LEGAL NAME]' %}
+{% set contact = settings.support_email or '[EMAIL]' %}
+{% block main %}
+<div class="wrap" style="max-width:720px">
+{% if lang == 'es' %}
+<h1 class="page">Condiciones de uso</h1>
+<p>{{ app_name }} es un servicio de {{ who }} para que operadores de turismo de naturaleza creen informes de viaje.</p>
+<h2 class="sec">Cuenta y equipo</h2><p>El titular de la cuenta es responsable del uso que hagan sus guías y de que el contenido subido sea suyo o tenga permiso para usarlo.</p>
+<h2 class="sec">Prueba y pagos</h2><p>La prueba gratuita dura {{ settings.trial_days }} días y no requiere tarjeta. Las suscripciones se cobran por adelantado, mensual o anualmente, a través de Stripe, y se renuevan hasta que las canceles. Puedes cancelar en cualquier momento; el acceso continúa hasta el final del periodo pagado.</p>
+<h2 class="sec">Contenido</h2><p>Tu contenido es tuyo. Nos das permiso para almacenarlo y procesarlo solo para prestar el servicio. Los borradores generados automáticamente pueden contener errores: revisa y aprueba cada día antes de enviarlo.</p>
+<h2 class="sec">Disponibilidad</h2><p>Hacemos lo posible por mantener el servicio disponible y hacer copias de seguridad, pero no garantizamos que funcione sin interrupciones.</p>
+<h2 class="sec">Responsabilidad</h2><p>En la medida permitida por la ley, nuestra responsabilidad se limita a lo pagado en los últimos 12 meses.</p>
+<h2 class="sec">Contacto</h2><p>{{ contact }}</p>
+{% else %}
+<h1 class="page">Terms of use</h1>
+<p>{{ app_name }} is a service by {{ who }} that helps nature and wildlife tour operators create trip reports.</p>
+<h2 class="sec">Account and team</h2><p>The account owner is responsible for how their guides use the service and for having the right to the content they upload.</p>
+<h2 class="sec">Trial and payment</h2><p>The free trial lasts {{ settings.trial_days }} days and needs no card. Subscriptions are billed in advance, monthly or yearly, through Stripe, and renew until cancelled. You can cancel any time; access continues to the end of the paid period.</p>
+<h2 class="sec">Content</h2><p>Your content is yours. You allow us to store and process it only to provide the service. Automatically generated drafts can contain mistakes: review and approve each day before sending it.</p>
+<h2 class="sec">Availability</h2><p>We work to keep the service available and backed up, but we don't guarantee uninterrupted operation.</p>
+<h2 class="sec">Liability</h2><p>As far as the law allows, our liability is limited to the amount you paid in the last 12 months.</p>
+<h2 class="sec">Contact</h2><p>{{ contact }}</p>
+{% endif %}
+</div>
+{% endblock %}

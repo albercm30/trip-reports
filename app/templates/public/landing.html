@@ -1,0 +1,62 @@
+{% extends "public/base_public.html" %}
+{% block title %}{{ app_name }} · {{ _('Trip reports for wildlife guides') }}{% endblock %}
+{% block main %}
+<div class="wide">
+  <section class="hero">
+    <h1>{{ _('From field notes to a finished trip report') }}</h1>
+    <p>{{ _('Your guides dictate a few lines and a rough tally in the field. Your guests get a polished, branded report with every species checked, and you get a record of your season that sells your next trip.') }}</p>
+    <div class="row">
+      <a class="btn primary" href="/signup">{{ _('Start your {n}-day free trial', n=settings.trial_days) }}</a>
+      <a class="btn" href="/example">{{ _('See an example report') }}</a>
+    </div>
+    <p class="hint" style="margin-top:12px">{{ _('No card needed for the trial.') }}</p>
+  </section>
+
+  <ol class="steps">
+    <li><span class="n">1</span><strong>{{ _('Talk or type in the field') }}</strong><span>{{ _('A few lines of notes and a rough tally like “40 griffons, lynx x1, heard eagle-owl”. Use your phone\'s dictation.') }}</span></li>
+    <li><span class="n">2</span><strong>{{ _('Get a clean draft') }}</strong><span>{{ _('A tidy species list with scientific names and a written day report. Doubtful identifications are flagged, never guessed.') }}</span></li>
+    <li><span class="n">3</span><strong>{{ _('Approve and send') }}</strong><span>{{ _('A report in your colours with photos and a day-by-day species table. Send guests a private link or a PDF.') }}</span></li>
+  </ol>
+</div>
+
+<section class="band"><div class="wide">
+  <h2>{{ _('Built for wildlife and birding operators') }}</h2>
+  <div class="feature-grid">
+    <div class="feature"><h3>{{ _('Your brand on every report') }}</h3><p>{{ _('Logo, colour, sign-off and a writing style that sounds like you, in English, Spanish, German or French.') }}</p></div>
+    <div class="feature"><h3>{{ _('Names you can trust') }}</h3><p>{{ _('Species are checked against the GBIF taxonomy. Nothing reaches a guest until a guide has approved the day.') }}</p></div>
+    <div class="feature"><h3>{{ _('Season insights') }}</h3><p>{{ _('See how often you find your target species and the best months for each. Turn it into honest marketing like “lynx on 59% of our trips”.') }}</p></div>
+    <div class="feature"><h3>{{ _('Your whole team') }}</h3><p>{{ _('Invite your guides. Everyone works on the same trips from their phone.') }}</p></div>
+    <div class="feature"><h3>{{ _('Your data stays yours') }}</h3><p>{{ _('Export every sighting as a spreadsheet at any time. Photo location data is removed on upload, to protect sensitive species.') }}</p></div>
+    <div class="feature"><h3>{{ _('Works on any phone') }}</h3><p>{{ _('Nothing to install. Changes save as you type.') }}</p></div>
+  </div>
+</div></section>
+
+<section class="band" id="pricing"><div class="wide">
+  <h2>{{ _('Pricing') }}</h2>
+  <div class="plans">
+    <div class="plan">
+      <h3>{{ _('Starter') }}</h3>
+      <p class="price">€{{ plans.starter.month_eur }} <small>/ {{ _('month') }}</small></p>
+      <p class="hint" style="margin:0">{{ _('or €{y} a year (2 months free)', y=plans.starter.year_eur) }}</p>
+      <ul><li>{{ _('Unlimited trips and reports') }}</li><li>{{ _('Up to {n} guides', n=plans.starter.seats) }}</li><li>{{ _('Season insights') }}</li><li>{{ _('Branded reports and share links') }}</li></ul>
+      <a class="btn" href="/signup">{{ _('Start free trial') }}</a>
+    </div>
+    <div class="plan featured">
+      <h3>{{ _('Pro') }}</h3>
+      <p class="price">€{{ plans.pro.month_eur }} <small>/ {{ _('month') }}</small></p>
+      <p class="hint" style="margin:0">{{ _('or €{y} a year (2 months free)', y=plans.pro.year_eur) }}</p>
+      <ul><li>{{ _('Everything in Starter') }}</li><li>{{ _('Up to {n} guides', n=plans.pro.seats) }}</li><li>{{ _('Priority support') }}</li></ul>
+      <a class="btn primary" href="/signup">{{ _('Start free trial') }}</a>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:12px">{{ _('Prices exclude VAT where it applies. Cancel any time.') }}</p>
+</div></section>
+
+<section class="band"><div class="wide faq">
+  <h2>{{ _('Questions') }}</h2>
+  <details><summary>{{ _('Will it make up sightings?') }}</summary><p>{{ _('No. Drafts are built only from what your guide wrote. Unconfirmed identifications are marked with a “?”, and a guide approves every day before guests can see it.') }}</p></details>
+  <details><summary>{{ _('Do my guests need an account?') }}</summary><p>{{ _('No. You send them a private link, or a PDF. You can turn a link off at any time.') }}</p></details>
+  <details><summary>{{ _('Which languages?') }}</summary><p>{{ _('Reports can be written in English, Spanish, German or French. The app itself is in English and Spanish.') }}</p></details>
+  <details><summary>{{ _('What happens after the trial?') }}</summary><p>{{ _('Pick a plan to keep creating reports. If you don\'t, everything stays readable and you can export it.') }}</p></details>
+</div></section>
+{% endblock %}

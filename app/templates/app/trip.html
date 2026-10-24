@@ -1,0 +1,192 @@
+{% extends "app/base_app.html" %}
+{% block title %}{{ trip.title or _('Untitled trip') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<p style="margin:18px 0 0"><a href="/app" class="hint">← {{ _('All trips') }}</a></p>
+<h1 class="page" style="margin-top:6px">{{ trip.title or _('Untitled trip') }}{% if trip.is_demo %}<span class="tag ochre">{{ _('Demo') }}</span>{% endif %}</h1>
+<nav class="tabs" aria-label="{{ _('Trip sections') }}">
+  <a href="?tab=trip" {% if tab == 'trip' %}aria-current="page"{% endif %}>{{ _('Trip') }}</a>
+  <a href="?tab=days" {% if tab == 'days' %}aria-current="page"{% endif %}>{{ _('Days') }}{% if trip.days %} ({{ trip.days|length }}){% endif %}</a>
+  <a href="?tab=report" {% if tab == 'report' %}aria-current="page"{% endif %}>{{ _('Report') }}</a>
+</nav>
+
+{# ======================================================== TRIP DETAILS #}
+{% if tab == 'trip' %}
+<form method="post" action="/app/trips/{{ trip.id }}" data-autosave>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="sr" tabindex="-1" aria-hidden="true">{{ _('Save') }}</button>
+  <fieldset {% if not can_write %}disabled{% endif %} style="border:0;padding:0;margin:0">
+  <div class="panel">
+    <label class="field"><span>{{ _('Trip name') }}</span><input type="text" name="title" value="{{ trip.title }}" maxlength="160" placeholder="{{ _('Iberian Lynx Weekend') }}" {% if is_new %}autofocus{% endif %}></label>
+    <label class="field"><span>{{ _('Where') }}</span><input type="text" name="location" value="{{ trip.location }}" maxlength="200" placeholder="Sierra de Andújar, Jaén, Spain"></label>
+    <div class="grid2">
+      <label class="field"><span>{{ _('First day') }}</span><input type="date" name="start_date" value="{{ trip.start_date.isoformat() if trip.start_date else '' }}"><small>{{ _('Day dates follow from this.') }}</small></label>
+      <label class="field"><span>{{ _('Number of guests') }}</span><input type="number" name="guests" min="0" max="999" inputmode="numeric" value="{{ trip.guests if trip.guests is not none else '' }}"></label>
+    </div>
+    <label class="field"><span>{{ _('Guide(s)') }}</span><input type="text" name="guides" value="{{ trip.guides }}" maxlength="200"></label>
+  </div>
+
+  <h2 class="sec" id="closing">{{ _('Opening and closing') }}</h2>
+  <p class="hint" style="margin-top:-4px">{{ _('Write these once the days are done, or let the app draft both from your day reports.') }}</p>
+  <div class="panel">
+    <label class="field"><span>{{ _('Opening paragraph') }}</span><textarea class="prose" name="intro" style="min-height:140px">{{ trip.intro }}</textarea></label>
+    <label class="field"><span>{{ _('Closing paragraph') }}</span><textarea class="prose" name="summary" style="min-height:140px">{{ trip.summary }}</textarea></label>
+    {% if can_write %}
+    <div class="row">
+      <button class="btn primary" formaction="/app/trips/{{ trip.id }}/intro/draft" data-busy="{{ _('Writing the opening and closing…') }}" {% if not trip.days %}disabled{% endif %}>{{ _('Draft opening and closing') }}</button>
+      {% if not trip.days %}<span class="hint">{{ _('Add at least one day first.') }}</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  </fieldset>
+  <noscript><div class="row" style="margin-top:12px"><button class="btn primary">{{ _('Save') }}</button></div></noscript>
+</form>
+<form method="post" action="/app/trips/{{ trip.id }}/delete" style="margin-top:28px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="btn danger small" data-confirm="{{ _('Delete this trip and everything in it? This can\'t be undone.') }}">{{ _('Delete trip') }}</button>
+</form>
+{% endif %}
+
+{# ======================================================== DAYS #}
+{% if tab == 'days' %}
+{% if not trip.days %}
+  <div class="empty"><strong>{{ _('No days yet') }}</strong><p>{{ _('Add a day, then type or dictate your notes and sightings.') }}</p></div>
+{% endif %}
+{% for d in trip.days %}{% set n = loop.index %}
+{% set unsure = d.sightings|rejectattr('sure')|list|length %}
+<details class="day" id="day-{{ d.id }}" {% if open_day == d.id or (trip.days|length == 1) %}open{% endif %}>
+  <summary>
+    <span class="day-num">{{ n }}</span>
+    <span style="min-width:0">
+      <span class="t">{{ d.place or _('Day {n}', n=n) }}</span><br>
+      <span class="m">{{ d.date.strftime('%d/%m/%Y') if d.date else '' }}{% if d.sightings %} · {{ _('{n} species', n=d.sightings|length) }}{% endif %}</span>
+      {% if unsure %}<span class="tag warn">{{ _('{n} to check', n=unsure) }}</span>{% endif %}
+      {% if d.approved %}<span class="tag ok">{{ _('Approved') }}</span>{% elif d.narrative %}<span class="tag">{{ _('Draft') }}</span>{% endif %}
+    </span>
+    <span class="chev" aria-hidden="true">▾</span>
+  </summary>
+  <div class="day-body">
+    <form method="post" action="/app/trips/{{ trip.id }}/days/{{ d.id }}" data-autosave>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="sr" tabindex="-1" aria-hidden="true">{{ _('Save day') }}</button>
+      <fieldset {% if not can_write %}disabled{% endif %} style="border:0;padding:0;margin:0">
+      <div class="grid2" style="margin-top:12px">
+        <label class="field"><span>{{ _('Date') }}</span><input type="date" name="date" value="{{ d.date.isoformat() if d.date else '' }}"></label>
+        <label class="field"><span>{{ _('Where you went') }}</span><input type="text" name="place" value="{{ d.place }}" maxlength="200" placeholder="{{ _('Encinarejo dam, Jándula river') }}"></label>
+      </div>
+      <label class="field"><span>{{ _('Your notes') }}</span><textarea name="notes" rows="5" placeholder="{{ _('What happened today: highlights, weather, funny moments, the lynx at the dam at 18:40…') }}">{{ d.notes }}</textarea><small>{{ _('Tip: tap the microphone on your phone\'s keyboard to dictate.') }}</small></label>
+
+      <h2 class="sec">{{ _('Sightings') }}</h2>
+      <label class="field"><span>{{ _('Paste or dictate your tally') }}</span><textarea name="raw_tally" rows="3" placeholder="{{ _('40 griffon vultures, 2 black vultures, imperial eagle pair, lynx x1!, heard eagle owl, bonelli\'s eagle?') }}">{{ d.raw_tally }}</textarea>
+        <small>{{ _('Separate species with commas or new lines. Add “?” for doubtful IDs, “!” for highlights and “heard” for heard-only.') }}</small></label>
+      {% if can_write %}
+      <div class="row">
+        <button class="btn" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/species/parse" data-busy="{{ _('Reading your list…') }}">{{ _('Add to species list') }}</button>
+        <button class="btn ghost small" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/species/add">{{ _('Add one by hand') }}</button>
+      </div>
+      {% endif %}
+      <div class="sp-list">
+        {% for s in d.sightings %}
+        <div class="sp {% if not s.sure %}unsure{% endif %}" id="sp-{{ s.id }}">
+          <div class="names">
+            <input type="text" name="sp_{{ s.id }}_name" value="{{ s.name }}" aria-label="{{ _('Species name') }}" placeholder="{{ _('Species name') }}" maxlength="120">
+            <input type="text" class="sci" name="sp_{{ s.id }}_sci" value="{{ s.sci }}" aria-label="{{ _('Scientific name') }}" placeholder="{{ _('Scientific name') }}" maxlength="120">
+          </div>
+          <input type="number" name="sp_{{ s.id }}_count" value="{{ s.count if s.count is not none else '' }}" min="0" inputmode="numeric" aria-label="{{ _('Count') }}" placeholder="{{ _('No.') }}">
+          {% if can_write %}<button class="iconbtn" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/species/{{ s.id }}/delete" aria-label="{{ _('Remove {name}', name=s.name) }}" title="{{ _('Remove') }}">✕</button>{% else %}<span></span>{% endif %}
+          <div class="flags">
+            <label><input type="checkbox" name="sp_{{ s.id }}_heard" value="1" {% if s.heard %}checked{% endif %}> {{ _('Heard only') }}</label>
+            <label><input type="checkbox" name="sp_{{ s.id }}_sure" value="1" data-sure {% if s.sure %}checked{% endif %}> {{ _('Identification confirmed') }}</label>
+            <label><input type="checkbox" name="sp_{{ s.id }}_star" value="1" {% if s.star %}checked{% endif %}> ★ {{ _('Highlight') }}</label>
+            {% if s.taxon_status == 'matched' %}<span class="taxon ok" title="GBIF">✓ {{ _('Name checked') }}</span>
+            {% elif s.taxon_status == 'unmatched' %}<span class="taxon bad">{{ _('Scientific name not found. Check it.') }}</span>{% endif %}
+          </div>
+        </div>
+        {% else %}
+        <p class="hint">{{ _('No species yet.') }}</p>
+        {% endfor %}
+      </div>
+
+      <h2 class="sec" id="narr-{{ d.id }}">{{ _('Day report') }}</h2>
+      <label class="field"><span class="sr">{{ _('Day {n} report', n=n) }}</span><textarea class="prose" name="narrative" placeholder="{{ _('Write it yourself, or let the app draft it from your notes and sightings.') }}">{{ d.narrative }}</textarea></label>
+      {% if can_write %}
+      <div class="row">
+        <button class="btn primary" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/draft" data-busy="{{ _('Writing the day report…') }}" {% if d.narrative %}data-confirm="{{ _('Replace the current day report with a new draft?') }}"{% endif %}>{{ _('Redraft') if d.narrative else _('Draft day report') }}</button>
+        <span class="hint">{{ _('Drafts use only your notes and species list.') }}{% if not ai_on %} {{ _('Edit them into your own words.') }}{% endif %}</span>
+      </div>
+      {% endif %}
+      <label class="approve"><input type="checkbox" name="approved" value="1" {% if d.approved %}checked{% endif %}> {{ _('I\'ve checked this day and it\'s ready to send') }}</label>
+      {% if d.approved and d.approved_by %}<p class="hint" style="margin:6px 0 0">{{ _('Approved by {who}', who=d.approved_by) }}</p>{% endif %}
+
+      {% if d.photos %}
+      <h2 class="sec">{{ _('Photos') }}</h2>
+      <div class="photos">
+        {% for p in d.photos %}
+        <div class="ph">
+          <img src="/media/{{ p.storage_key }}" alt="{{ p.caption or _('Trip photo') }}" loading="lazy" width="{{ p.width }}" height="{{ p.height }}">
+          {% if can_write %}<button class="rm" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/photos/{{ p.id }}/delete" aria-label="{{ _('Remove photo') }}" data-confirm="{{ _('Remove this photo?') }}">✕</button>{% endif %}
+          <input type="text" name="ph_{{ p.id }}_caption" value="{{ p.caption }}" placeholder="{{ _('Caption') }}" aria-label="{{ _('Photo caption') }}" maxlength="300">
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      </fieldset>
+      <noscript><div class="row" style="margin-top:12px"><button class="btn primary">{{ _('Save day') }}</button></div></noscript>
+    </form>
+
+    {% if can_write %}
+    <form method="post" action="/app/trips/{{ trip.id }}/days/{{ d.id }}/photos" enctype="multipart/form-data" class="row" style="margin-top:14px">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% if not d.photos %}<span class="label" style="width:100%;margin:8px 0 0">{{ _('Photos') }}</span>{% endif %}
+      <input type="file" name="files" accept="image/*" multiple aria-label="{{ _('Choose photos') }}" style="max-width:100%">
+      <button class="btn small" data-busy="{{ _('Uploading photos…') }}">{{ _('Upload') }}</button>
+      <span class="hint" style="width:100%">{{ _('Up to 12 at a time. Location data is removed from every photo.') }}</span>
+    </form>
+    <form method="post" action="/app/trips/{{ trip.id }}/days/{{ d.id }}/delete" style="margin-top:16px">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn danger small" data-confirm="{{ _('Delete this day and everything in it?') }}">{{ _('Delete day') }}</button>
+    </form>
+    {% endif %}
+  </div>
+</details>
+{% endfor %}
+{% if can_write %}
+<form method="post" action="/app/trips/{{ trip.id }}/days" style="margin-top:6px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="btn primary">{{ _('Add day {n}', n=trip.days|length + 1) }}</button>
+</form>
+{% endif %}
+{% endif %}
+
+{# ======================================================== REPORT #}
+{% if tab == 'report' %}
+<div class="no-print">
+  <ul class="checks">
+    {% if ready %}<li><b aria-hidden="true">✓</b><span>{{ _('Every day is written and approved. Ready to send.') }}</span></li>{% endif %}
+    {% for level, msg, kw in checks %}
+      <li class="{{ 'warn' if level == 'warn' else '' }}"><b aria-hidden="true">{{ '!' if level == 'warn' else '·' }}</b><span>{{ _(msg, **kw) }}</span></li>
+    {% endfor %}
+  </ul>
+
+  <div class="panel" id="share">
+    <strong>{{ _('Send it to your guests') }}</strong>
+    {% if trip.share_token %}
+      <p class="hint" style="margin:4px 0 10px">{{ _('Anyone with this private link can view the report. It isn\'t listed anywhere.') }}</p>
+      <div class="copyrow"><input type="text" id="share-url" readonly value="{{ settings.app_url }}/r/{{ trip.share_token }}" aria-label="{{ _('Share link') }}"><button class="btn small" data-copy="share-url">{{ _('Copy') }}</button></div>
+      <div class="row" style="margin-top:10px">
+        <a class="btn small" href="/r/{{ trip.share_token }}" target="_blank" rel="noopener">{{ _('Open as a guest') }}</a>
+        {% if can_write %}<form method="post" action="/app/trips/{{ trip.id }}/share?rotate=1"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost" data-confirm="{{ _('Create a new link? The current link will stop working.') }}">{{ _('New link') }}</button></form>{% endif %}
+        <form method="post" action="/app/trips/{{ trip.id }}/unshare"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost danger">{{ _('Turn off link') }}</button></form>
+      </div>
+    {% else %}
+      <p class="hint" style="margin:4px 0 10px">{{ _('Create a private link to send by email or WhatsApp, or save the report as a PDF.') }}</p>
+      {% if can_write %}<form method="post" action="/app/trips/{{ trip.id }}/share"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary" {% if not ready %}data-confirm="{{ _('Not every day is approved yet. Create the link anyway?') }}"{% endif %}>{{ _('Create share link') }}</button></form>{% endif %}
+    {% endif %}
+    <div class="row" style="margin-top:12px">
+      <a class="btn small" href="/app/trips/{{ trip.id }}/print" target="_blank" rel="noopener">{{ _('Print or save as PDF') }}</a>
+      <a class="btn small" href="/app/trips/{{ trip.id }}/sightings.csv">{{ _('Download sightings (CSV)') }}</a>
+    </div>
+  </div>
+</div>
+<div class="rpt-frame">{% include "report/_article.html" %}</div>
+{% endif %}
+{% endblock %}

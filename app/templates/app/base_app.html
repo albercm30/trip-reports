@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+{% set can_edit = plans.can_write(org) %}
+<header class="bar narrow">
+  <div class="bar-in">
+    {% include "_brand.html" %}
+    <span class="grow"></span>
+    <span class="save-state" id="save-state" aria-live="polite"></span>
+    <form method="post" action="/logout" class="no-print"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost">{{ _('Log out') }}</button></form>
+  </div>
+  <nav class="nav" aria-label="{{ _('Main') }}">
+    <a href="/app" {% if nav == 'trips' %}aria-current="page"{% endif %}>{{ _('Trips') }}</a>
+    <a href="/app/insights" {% if nav == 'insights' %}aria-current="page"{% endif %}>{{ _('Insights') }}</a>
+    <a href="/app/team" {% if nav == 'team' %}aria-current="page"{% endif %}>{{ _('Team') }}</a>
+    <a href="/app/settings" {% if nav == 'settings' %}aria-current="page"{% endif %}>{{ _('Company') }}</a>
+    {% if user.is_owner %}<a href="/app/billing" {% if nav == 'billing' %}aria-current="page"{% endif %}>{{ _('Plan') }}</a>{% endif %}
+    <a href="/app/account" {% if nav == 'account' %}aria-current="page"{% endif %}>{{ _('Account') }}</a>
+  </nav>
+  {% if not can_edit %}
+    <div class="banner">{{ _('Your account is read-only.') }} {% if user.is_owner %}<a href="/app/billing">{{ _('Choose a plan') }}</a> {{ _('to keep creating reports.') }}{% else %}{{ _('Ask the account owner to choose a plan.') }}{% endif %}</div>
+  {% elif org.plan == 'trial' and plans.trial_days_left(org) <= 5 %}
+    <div class="banner">{{ _('{n} days left in your free trial.', n=plans.trial_days_left(org)) }} {% if user.is_owner %}<a href="/app/billing">{{ _('Choose a plan') }}</a>{% endif %}</div>
+  {% endif %}
+</header>
+<main class="{% block mainclass %}wrap{% endblock %}">{% block main %}{% endblock %}</main>
+{% endblock %}
