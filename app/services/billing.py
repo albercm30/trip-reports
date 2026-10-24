@@ -108,6 +108,16 @@ def apply_subscription(db: Session, sub: dict) -> Organization | None:
     if plan:
         org.plan = plan
     org.current_period_end = _ts(sub.get("current_period_end") or item.get("current_period_end"))
+    # Cancelling in the portal usually means "at the end of the period": the subscription stays
+    # active until then, so remember the date to show it.
+    if sub.get("status") in ("canceled", "incomplete_expired"):
+        org.cancel_at = None
+    elif sub.get("cancel_at"):
+        org.cancel_at = _ts(sub["cancel_at"])
+    elif sub.get("cancel_at_period_end"):
+        org.cancel_at = org.current_period_end
+    else:
+        org.cancel_at = None
     return org
 
 

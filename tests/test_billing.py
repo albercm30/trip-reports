@@ -149,3 +149,21 @@ def test_return_from_checkout_activates_plan_without_webhook(owner, monkeypatch)
     monkeypatch.setattr(billing, "client", lambda: _FakeClient(org.id))
     r = owner.post_form("/app/billing/sync")
     assert r.status_code == 303 and _org().billing_status == "past_due"
+
+
+def test_cancel_at_period_end_is_shown(owner):
+    org = _org()
+    sub = _sub(org.id)
+    body, sig = _signed({"id": "evt_c1", "type": "customer.subscription.created", "data": {"object": sub}})
+    owner.post("/billing/webhook", content=body, headers={"stripe-signature": sig})
+    sub2 = {**sub, "cancel_at_period_end": True}
+    body, sig = _signed({"id": "evt_c2", "type": "customer.subscription.updated", "data": {"object": sub2}})
+    owner.post("/billing/webhook", content=body, headers={"stripe-signature": sig})
+    org = _org()
+    assert org.billing_status == "active" and org.cancel_at is not None and plans.can_write(org)
+    page = owner.get("/app/billing").text
+    assert "Your plan ends on" in page
+    # turning renewal back on clears it
+    body, sig = _signed({"id": "evt_c3", "type": "customer.subscription.updated", "data": {"object": sub}})
+    owner.post("/billing/webhook", content=body, headers={"stripe-signature": sig})
+    assert _org().cancel_at is None and "Renews on" in owner.get("/app/billing").text

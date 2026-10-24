@@ -17,7 +17,10 @@
     <strong>{{ _('Starter') if org.plan == 'starter' else _('Pro') }}</strong>
     {% set st = {'active': _('Active'), 'trialing': _('Active'), 'past_due': _('Payment failed: update your card'), 'canceled': _('Cancelled'), 'unpaid': _('Unpaid'), 'incomplete': _('Waiting for payment'), 'incomplete_expired': _('Expired'), 'paused': _('Paused')} %}
     <span class="tag {{ 'ok' if org.billing_status in ('active','trialing') else 'warn' }}">{{ st.get(org.billing_status, org.billing_status) }}</span>
-    {% if org.current_period_end %}<p style="margin:6px 0 0" class="hint">{{ _('Current period ends {d}.', d=org.current_period_end.strftime('%d/%m/%Y')) }}</p>{% endif %}
+    {% if org.cancel_at and org.billing_status not in ('canceled', 'incomplete_expired') %}
+      <span class="tag warn">{{ _('Cancelled') }}</span>
+      <p style="margin:6px 0 0">{{ _('Your plan ends on {d}. You keep full access until then, and you can turn renewal back on from “Manage subscription”.', d=org.cancel_at.strftime('%d/%m/%Y')) }}</p>
+    {% elif org.current_period_end and org.billing_status in ('active', 'trialing', 'past_due') %}<p style="margin:6px 0 0" class="hint">{{ _('Renews on {d}.', d=org.current_period_end.strftime('%d/%m/%Y')) }}</p>{% endif %}
   {% endif %}
   {% if org.stripe_customer_id and user.is_owner %}
     <div class="row" style="margin-top:12px">
