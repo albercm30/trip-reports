@@ -28,7 +28,7 @@
       <form method="post" action="/app/billing/sync"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost small">{{ _('Refresh status') }}</button></form>
     </div>
   {% endif %}
-  <p class="hint" style="margin:10px 0 0">{{ _('Seats: {n}.', n=plan.seats) }}{% if settings.ai_enabled %} {{ _('Claude drafts this month: {u} of {n}.', u=ai_used, n=plan.ai_per_month) }}{% endif %}</p>
+  <p class="hint" style="margin:10px 0 0">{{ _('Seats: {n}.', n=plan.seats) }}{% if settings.ai_enabled %} {{ _('AI uses this month: {u} of {n}.', u=ai_used, n=plan.ai_per_month) }}{% endif %}</p>
 </div>
 
 {% if org.plan == 'trial' or org.billing_status in ('canceled', 'incomplete_expired', 'unpaid') %}

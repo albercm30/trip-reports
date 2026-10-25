@@ -2,7 +2,7 @@
 
 It never adds facts. It cleans up the guide's own notes into sentences and adds short
 sentences built only from the species list (highlights, heard-only, unconfirmed, total).
-The guide is expected to edit it; with an Anthropic key the app uses Claude instead.
+The guide is expected to edit it; when an AI provider is set up the app uses it instead.
 """
 from __future__ import annotations
 

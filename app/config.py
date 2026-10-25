@@ -43,6 +43,10 @@ class Settings:
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5-5"
     anthropic_fast_model: str = "claude-haiku-5-5"
+    # Any OpenAI-compatible provider (default: Groq, which has a free tier)
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_model: str = "llama-3.3-70b-versatile"
 
     # Billing (Stripe)
     stripe_secret_key: str = ""
@@ -77,7 +81,11 @@ class Settings:
 
     @property
     def ai_enabled(self) -> bool:
-        return bool(self.anthropic_api_key)
+        return bool(self.anthropic_api_key or self.llm_api_key)
+
+    @property
+    def ai_provider(self) -> str:
+        return "anthropic" if self.anthropic_api_key else ("openai" if self.llm_api_key else "")
 
     @property
     def billing_enabled(self) -> bool:
@@ -117,6 +125,9 @@ def load_settings() -> Settings:
         anthropic_api_key=_env("ANTHROPIC_API_KEY"),
         anthropic_model=_env("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
         anthropic_fast_model=_env("ANTHROPIC_FAST_MODEL", "claude-haiku-5-5"),
+        llm_api_key=_env("LLM_API_KEY"),
+        llm_base_url=_env("LLM_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/"),
+        llm_model=_env("LLM_MODEL", "llama-3.3-70b-versatile"),
         stripe_secret_key=_env("STRIPE_SECRET_KEY"),
         stripe_webhook_secret=_env("STRIPE_WEBHOOK_SECRET"),
         stripe_prices={k: v for k, v in prices.items() if v},

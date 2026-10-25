@@ -29,8 +29,12 @@ services:
         sync: false
       - key: STRIPE_PRICE_PRO_YEARLY
         sync: false
+      - key: LLM_API_KEY
+        sync: false            # free AI: a Groq key from console.groq.com (optional)
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
       - key: ANTHROPIC_API_KEY
-        sync: false            # optional: leave empty to use the free drafter
+        sync: false            # optional, paid: Claude instead of Groq
       - key: SUPPORT_EMAIL
         sync: false
       - key: LEGAL_NAME

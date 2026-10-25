@@ -15,7 +15,7 @@
         <option value="warm" {% if org.tone == 'warm' %}selected{% endif %}>{{ _('Warm and personal') }}</option>
         <option value="expert" {% if org.tone == 'expert' %}selected{% endif %}>{{ _('Expert and precise') }}</option>
         <option value="lively" {% if org.tone == 'lively' %}selected{% endif %}>{{ _('Lively and fun') }}</option>
-      </select><small>{{ _('Used when drafting with Claude.') }}</small></label>
+      </select><small>{{ _('Used when the AI drafts reports.') }}</small></label>
     </div>
     <div class="grid2">
       <label class="field"><span>{{ _('Brand colour') }}</span><input type="color" name="accent" value="{{ org.accent }}"></label>

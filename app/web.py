@@ -30,8 +30,11 @@ JS_STRINGS = ["Saving…", "Saved", "Not saved", "Unsaved changes", "Copied.", "
               "Couldn't copy. Select the text and copy it yourself.", "Something went wrong. Try again.",
               "Your session ended. Log in again to keep saving.",
               "Your trial has ended. Choose a plan to keep editing.", "Write the day report before approving it.",
-              "Drafted with Claude. Edit before you publish it.",
-              "Draft ready, built from your numbers. Edit before you publish it."]
+              "Drafted with AI. Edit before you publish it.",
+              "Draft ready, built from your numbers. Edit before you publish it.",
+              "Dictate", "Stop dictating", "Listening…", "Allow microphone access in your browser to dictate.",
+              "Didn't hear anything. Try again closer to the microphone.", "Dictation needs an internet connection.",
+              "Dictation stopped. Try again."]
 templates.env.globals.update(settings=settings, plans=plans, UI_LANGS=UI_LANGS)
 
 

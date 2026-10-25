@@ -22,15 +22,15 @@ from ..web import ok_or_redirect, redirect, render, wants_json
 router = APIRouter(prefix="/app/trips")
 TABS = ("trip", "days", "report")
 ENGINE_NOTE = {
-    "ai": "Drafted with Claude. Read it through and fix anything that isn't right.",
+    "ai": "Drafted with AI. Read it through and fix anything that isn't right.",
     "free": "First draft ready. It's built only from your notes and sightings; edit it into your own words.",
 }
 AI_ERRORS = {
-    "rate_limited": "Claude is busy right now, so we used the free drafter instead.",
-    "unavailable": "Claude wasn't available, so we used the free drafter instead.",
-    "too_long": "Your notes were too long for Claude, so we used the free drafter instead.",
-    "refused": "Claude declined to write this, so we used the free drafter instead.",
-    "bad_output": "Claude's answer came back in the wrong format, so we used the free drafter instead.",
+    "rate_limited": "The AI is busy right now, so we used the free drafter instead.",
+    "unavailable": "The AI wasn't available, so we used the free drafter instead.",
+    "too_long": "Your notes were too long for the AI, so we used the free drafter instead.",
+    "refused": "The AI declined to write this, so we used the free drafter instead.",
+    "bad_output": "The AI's answer came back in the wrong format, so we used the free drafter instead.",
 }
 
 
@@ -237,18 +237,68 @@ async def parse_species(trip_id: str, day_id: str, request: Request, db: Session
     day = get_day(db, trip, day_id)
     await _save_day_form(request, db, user, trip, day)
     raw = day.raw_tally.strip()
-    if not raw:
+    use_notes = settings.ai_enabled and bool(day.notes.strip())
+    if not raw and not use_notes:
         return redirect(_day_url(trip, day), "Paste or dictate your sightings first.")
     if not ai_limiter.hit(user.org_id):
         return redirect(_day_url(trip, day), "Too many requests at once. Wait a minute and try again.")
-    r = drafting.add_species_from_text(db, user.org, user, trip, day, raw)
+    r = drafting.add_species_from_text(db, user.org, user, trip, day, raw, day.notes if use_notes else "")
     unsure = sum(1 for s in day.sightings if not s.sure)
     msg = translate(user.ui_lang, "{n} added.", n=r["added"])
     if unsure:
         msg += " " + translate(user.ui_lang, "Check the {u} highlighted.", u=unsure)
+    if r.get("dropped"):
+        msg += " " + translate(user.ui_lang, "{n} left out because they weren't in your own words.", n=r["dropped"])
     if r.get("error") in AI_ERRORS:
-        msg = translate(user.ui_lang, "Claude wasn't available, so the free parser read your list.") + " " + msg
+        msg = translate(user.ui_lang, "The AI wasn't available, so the free parser read your list.") + " " + msg
     return redirect(_day_url(trip, day), msg)
+
+
+PROOF_ERRORS = {
+    "unavailable": "Fixing spelling needs the AI, which isn't set up yet.",
+    "rate_limited": "The AI is busy right now. Try again in a minute.",
+    "too_long": "This text is too long to check in one go.",
+    "bad_output": "The AI's correction changed too much, so the text was left as it was.",
+    "refused": "The AI couldn't check this text.",
+}
+
+
+def _proof_msg(user: User, r: dict) -> str:
+    if r["engine"] == "ai":
+        return translate(user.ui_lang, "Spelling and grammar fixed. Your facts and wording are unchanged.")
+    return translate(user.ui_lang, PROOF_ERRORS.get(r.get("error") or "", "Nothing to fix."))
+
+
+@router.post("/{trip_id}/days/{day_id}/proofread")
+async def proofread_day(trip_id: str, day_id: str, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    day = get_day(db, trip, day_id)
+    await _save_day_form(request, db, user, trip, day)
+    if not ai_limiter.hit(user.org_id):
+        return redirect(_day_url(trip, day), "Too many requests at once. Wait a minute and try again.")
+    r = drafting.proofread(db, user.org, user, day.narrative)
+    if r["engine"] == "ai" and r["text"] != day.narrative:
+        day.narrative, day.approved = r["text"], False
+        db.commit()
+    return redirect(_day_url(trip, day).replace(f"#day-{day.id}", f"#narr-{day.id}"), _proof_msg(user, r))
+
+
+@router.post("/{trip_id}/proofread")
+async def proofread_trip(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    await _apply_trip_form(request, db, trip)
+    if not ai_limiter.hit(user.org_id):
+        return redirect(f"/app/trips/{trip.id}?tab=trip#closing", "Too many requests at once. Wait a minute and try again.")
+    results = []
+    for field in ("intro", "summary"):
+        r = drafting.proofread(db, user.org, user, getattr(trip, field))
+        if r["engine"] == "ai":
+            setattr(trip, field, r["text"])
+        results.append(r)
+    db.commit()
+    best = next((r for r in results if r["engine"] == "ai"), results[0])
+    return redirect(f"/app/trips/{trip.id}?tab=trip#closing", _proof_msg(user, best))
 
 
 @router.post("/{trip_id}/days/{day_id}/species/add")

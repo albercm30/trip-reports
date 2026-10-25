@@ -1,4 +1,6 @@
 import io
+
+import pytest
 from datetime import date, datetime, timedelta, timezone
 
 from PIL import Image
@@ -40,13 +42,15 @@ def test_free_species_parse_and_edit(owner):
     assert r.status_code == 303
     d = _day(did)
     names = {s.name: s for s in d.sightings}
-    assert names["Griffon vulture"].count == 40
-    assert names["Lynx"].star and names["Lynx"].count == 1
-    assert names["Eagle owl"].heard
+    assert names["Griffon Vulture"].count == 40 and names["Griffon Vulture"].source == "40 griffon vultures"
+    assert names["Iberian Lynx"].star and names["Iberian Lynx"].count == 1
+    assert names["Eurasian Eagle-Owl"].heard
     assert not names["Warbler"].sure
     assert d.raw_tally == ""
+    page = owner.get(f"/app/trips/{tid}?tab=days&day={did}").text
+    assert "From your words:" in page
     # edit a row through the day form, untick "confirmed" on the lynx
-    lynx = names["Lynx"]
+    lynx = names["Iberian Lynx"]
     form = {"place": "Dam", "notes": "", "narrative": "", "raw_tally": ""}
     for s in d.sightings:
         form.update({f"sp_{s.id}_name": s.name, f"sp_{s.id}_sci": s.sci, f"sp_{s.id}_count": s.count or "",
@@ -86,22 +90,70 @@ def test_approve_requires_text(owner):
 
 def test_ai_path_used_when_configured(owner, monkeypatch):
     monkeypatch.setattr(drafting.settings, "anthropic_api_key", "sk-test")
-    monkeypatch.setattr(ai, "parse_species", lambda raw, lang, ctx: ([
-        {"name": "Iberian Lynx", "sci": "Lynx pardinus", "count": 1, "heard": False, "sure": True, "star": True, "group": "mammals"},
-        {"name": "Eagle", "sci": "", "count": None, "sure": False, "group": "birds"},
-        {"bad": "row"}], 120, 80))
+    seen = {}
+
+    def fake_parse(tally, notes, lang, ctx, known=""):
+        seen.update(tally=tally, notes=notes)
+        return ({"species": [
+            {"name": "Iberian Lynx", "sci": "Lynx pardinus", "count": 1, "heard": False, "sure": True, "star": True,
+             "group": "mammals", "source": "lynx!"},
+            {"name": "Eagle", "sci": "", "count": None, "sure": False, "group": "birds", "source": "eagle"},
+            {"name": "Griffon Vulture", "sci": "Gyps fulvus", "count": 30, "group": "birds", "source": "30 grifons"},
+            {"name": "Golden Eagle", "sci": "Aquila chrysaetos", "source": "golden eagle on the ridge"},
+            {"bad": "row"}]}, 120, 80)
+    monkeypatch.setattr(ai, "parse_species", fake_parse)
     monkeypatch.setattr(ai, "draft_day", lambda **kw: ("We watched an Iberian lynx.", 300, 60))
     tid = new_trip(owner)
     did = add_day(owner, tid)
-    owner.post_form(f"/app/trips/{tid}/days/{did}/species/parse", {"place": "", "notes": "", "narrative": "", "raw_tally": "lynx!, eagle"})
+    owner.post_form(f"/app/trips/{tid}/days/{did}/species/parse",
+                    {"place": "", "notes": "Morning at the dam, 30 grifons over the ridge", "narrative": "", "raw_tally": "lynx!, eagle"})
+    assert seen["notes"].startswith("Morning at the dam")  # notes are read too
     owner.post_form(f"/app/trips/{tid}/days/{did}/draft", {"place": "", "notes": "lynx", "narrative": ""})
     d = _day(did)
-    assert [s.name for s in d.sightings] == ["Iberian Lynx", "Eagle"]
+    # the golden eagle was never written by the guide, so it is dropped
+    assert [s.name for s in d.sightings] == ["Iberian Lynx", "Eagle", "Griffon Vulture"]
     assert d.sightings[0].group == "Mammals"
     assert d.narrative == "We watched an Iberian lynx."
     from app.models import AIUsage
     with SessionLocal() as db:
         assert db.query(AIUsage).count() == 2
+
+
+def test_openai_compatible_provider_and_proofread(owner, monkeypatch):
+    import httpx
+    from app.services import ai as ai_mod
+    monkeypatch.setattr(drafting.settings, "llm_api_key", "gsk-test")
+    calls = []
+
+    class R:
+        def __init__(self, content, status=200):
+            self.status_code, self._c, self.text = status, content, ""
+
+        def json(self):
+            return {"choices": [{"message": {"content": self._c}}], "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        calls.append((url, json, headers))
+        prompt = json["messages"][1]["content"]
+        if prompt.startswith("Correct the spelling"):
+            return R("We saw a griffon vulture and a beautiful Iberian lynx at the dam.")
+        return R('{"species":[{"name":"Griffon Vulture","sci":"Gyps fulvus","count":40,"source":"fourty grifons"}]}')
+    monkeypatch.setattr(httpx, "post", fake_post)
+    tid = new_trip(owner)
+    did = add_day(owner, tid)
+    owner.post_form(f"/app/trips/{tid}/days/{did}/species/parse", {"place": "", "notes": "", "narrative": "",
+                                                                     "raw_tally": "fourty grifons"})
+    assert calls[0][0] == "https://api.groq.com/openai/v1/chat/completions"
+    assert calls[0][2]["Authorization"] == "Bearer gsk-test" and calls[0][1]["response_format"]["type"] == "json_object"
+    assert _day(did).sightings[0].name == "Griffon Vulture"
+    r = owner.post_form(f"/app/trips/{tid}/days/{did}/proofread",
+                        {"place": "", "notes": "", "narrative": "We saw a grifon vulture and a beatiful iberian links at the dam."})
+    assert r.status_code == 303
+    assert _day(did).narrative == "We saw a griffon vulture and a beautiful Iberian lynx at the dam."
+    # a "proofread" that rewrites the whole thing is refused
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: R("Completely different and much much longer text " * 10))
+    with pytest.raises(ai_mod.AIError):
+        ai_mod.proofread("Short note.", "en")
 
 
 def test_ai_failure_falls_back_to_free(owner, monkeypatch):

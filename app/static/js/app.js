@@ -126,6 +126,80 @@
   function grow(el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight + 4, 1400) + "px"; }
   $$("textarea.prose").forEach(function (el) { grow(el); el.addEventListener("input", function () { grow(el); }); });
 
+
+  /* ---------- dictation (browser speech recognition, free; hidden where unsupported) */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var activeRec = null;
+  function stopDictation() { if (activeRec) { try { activeRec.stop(); } catch (e) {} } }
+  if (SR) $$("textarea[data-dictate]").forEach(function (box) {
+    if (box.disabled || box.closest("fieldset[disabled]")) return;
+    var bar = document.createElement("div");
+    bar.className = "dictate-bar";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn small dictate";
+    btn.setAttribute("aria-pressed", "false");
+    var label = t("Dictate"), stopLabel = t("Stop dictating");
+    btn.innerHTML = '<span class="mic" aria-hidden="true"></span><span class="lbl"></span>';
+    btn.querySelector(".lbl").textContent = label;
+    var live = document.createElement("span");
+    live.className = "hint dictate-live";
+    live.setAttribute("aria-live", "polite");
+    bar.appendChild(btn); bar.appendChild(live);
+    box.insertAdjacentElement("afterend", bar);
+    var sep = box.getAttribute("data-dictate-sep") || " ";
+    var rec = null;
+
+    function insert(text) {
+      text = text.trim();
+      if (!text) return;
+      var v = box.value, start = box.selectionStart, end = box.selectionEnd;
+      if (document.activeElement !== box || start == null) { start = end = v.length; }
+      var before = v.slice(0, start), after = v.slice(end);
+      var glue = !before || /[\s\n]$/.test(before) ? "" : (sep === " " ? " " : sep);
+      if (sep === " " && (!before.trim() || /[.!?]\s*$/.test(before))) text = text.charAt(0).toUpperCase() + text.slice(1);
+      box.value = before + glue + text + after;
+      var pos = (before + glue + text).length;
+      try { box.setSelectionRange(pos, pos); } catch (e) {}
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    function setOn(on) {
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("on", on);
+      btn.querySelector(".lbl").textContent = on ? stopLabel : label;
+      if (!on) live.textContent = "";
+    }
+    btn.addEventListener("click", function () {
+      if (rec) { rec.stop(); return; }
+      stopDictation();
+      rec = new SR();
+      activeRec = rec;
+      rec.lang = box.getAttribute("data-dictate-lang") || document.documentElement.lang || "en-GB";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onresult = function (ev) {
+        var interim = "";
+        for (var i = ev.resultIndex; i < ev.results.length; i++) {
+          var r = ev.results[i];
+          if (r.isFinal) insert(r[0].transcript); else interim += r[0].transcript;
+        }
+        live.textContent = interim ? "… " + interim : t("Listening…");
+      };
+      rec.onerror = function (ev) {
+        if (ev.error === "not-allowed" || ev.error === "service-not-allowed") toast(t("Allow microphone access in your browser to dictate."));
+        else if (ev.error === "no-speech") toast(t("Didn't hear anything. Try again closer to the microphone."));
+        else if (ev.error === "network") toast(t("Dictation needs an internet connection."));
+        else if (ev.error !== "aborted") toast(t("Dictation stopped. Try again."));
+      };
+      rec.onend = function () { setOn(false); if (activeRec === rec) activeRec = null; rec = null; };
+      try { rec.start(); setOn(true); live.textContent = t("Listening…"); box.focus(); }
+      catch (e) { rec = null; setOn(false); toast(t("Dictation stopped. Try again.")); }
+    });
+  });
+  // stop listening before a form is sent or the page is left
+  document.addEventListener("submit", stopDictation, true);
+  window.addEventListener("pagehide", stopDictation);
+
   /* ---------- season summary on the insights page */
   var sb = $("#season-btn");
   if (sb) sb.addEventListener("click", function () {
@@ -137,7 +211,7 @@
       .then(function (res) {
         if (!res.ok || !res.j.ok) { note.textContent = t(res.j && res.j.error === "readonly" ? "Your trial has ended. Choose a plan to keep editing." : "Something went wrong. Try again."); return; }
         box.value = res.j.text; grow(box);
-        note.textContent = t(res.j.engine === "ai" ? "Drafted with Claude. Edit before you publish it." : "Draft ready, built from your numbers. Edit before you publish it.");
+        note.textContent = t(res.j.engine === "ai" ? "Drafted with AI. Edit before you publish it." : "Draft ready, built from your numbers. Edit before you publish it.");
       })
       .catch(function () { note.textContent = t("Something went wrong. Try again."); })
       .then(function () { sb.disabled = false; });

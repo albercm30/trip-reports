@@ -158,6 +158,7 @@ class Sighting(Base):
     group: Mapped[str] = mapped_column(String(40), default="")
     taxon_key: Mapped[int | None] = mapped_column(Integer, nullable=True)
     taxon_status: Mapped[str] = mapped_column(String(12), default="unchecked")  # matched|unmatched|unchecked
+    source: Mapped[str] = mapped_column(String(200), default="", server_default="")  # the guide's own words
 
     day: Mapped[Day] = relationship(back_populates="sightings")
 

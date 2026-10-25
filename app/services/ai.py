@@ -1,13 +1,18 @@
-"""Optional Claude (Anthropic API) drafting. Only used when ANTHROPIC_API_KEY is set.
+"""Optional AI drafting and reading. Used when an API key is set:
+- LLM_API_KEY: any OpenAI-compatible provider. The default is Groq, which has a free tier.
+- ANTHROPIC_API_KEY: Claude, if you later want the strongest writing.
 
-Every prompt carries the same hard rule: use only the guide's notes and species list,
-never invent sightings. The guide still approves every day before guests see it.
+Every prompt carries the same hard rule: use only the guide's notes and species list, never
+invent sightings. Species rows must quote the guide's own words, and the app checks that.
+The guide still approves every day before guests see it.
 """
 from __future__ import annotations
 
 import json
 import logging
 import re
+
+import httpx
 
 from ..config import settings
 
@@ -20,8 +25,10 @@ TONES = {
     "lively": "upbeat and lively with light humour, but never silly or exaggerated",
 }
 SYSTEM = ("You help wildlife and birding tour guides write trip reports for their guests. "
-          "You only ever use facts the guide gave you. You never invent animals, sightings, numbers, "
-          "times, places, people or weather.")
+          "Guides type fast or dictate into a phone in the field, so their notes contain spelling mistakes, "
+          "speech-recognition errors, missing punctuation, mixed English and Spanish, and quick corrections. "
+          "You understand what they meant and write it correctly. You only ever use facts the guide gave you. "
+          "You never invent animals, sightings, numbers, times, places, people or weather.")
 
 
 class AIError(Exception):
@@ -33,26 +40,18 @@ class AIError(Exception):
 _client = None
 
 
-def _get_client():
+def _anthropic(prompt: str, fast: bool, max_tokens: int) -> tuple[str, int, int]:
     global _client
-    if _client is None:
-        import anthropic  # imported lazily so the app runs without the package or a key
-        _client = anthropic.Anthropic(api_key=settings.anthropic_api_key, max_retries=2, timeout=60)
-    return _client
-
-
-def complete(prompt: str, *, fast: bool = False, max_tokens: int = 1200) -> tuple[str, int, int]:
-    """Returns (text, input_tokens, output_tokens). Raises AIError."""
-    if not settings.ai_enabled:
-        raise AIError("unavailable")
     try:
         import anthropic
-        resp = _get_client().messages.create(
-            model=settings.anthropic_fast_model if fast else settings.anthropic_model,
-            max_tokens=max_tokens, system=SYSTEM,
-            messages=[{"role": "user", "content": prompt}])
     except ImportError as e:
         raise AIError("unavailable") from e
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=settings.anthropic_api_key, max_retries=2, timeout=60)
+    try:
+        resp = _client.messages.create(
+            model=settings.anthropic_fast_model if fast else settings.anthropic_model,
+            max_tokens=max_tokens, system=SYSTEM, messages=[{"role": "user", "content": prompt}])
     except anthropic.RateLimitError as e:
         raise AIError("rate_limited") from e
     except anthropic.BadRequestError as e:
@@ -64,10 +63,52 @@ def complete(prompt: str, *, fast: bool = False, max_tokens: int = 1200) -> tupl
     if getattr(resp, "stop_reason", None) == "refusal":
         raise AIError("refused")
     text = "".join(getattr(b, "text", "") for b in resp.content).strip()
-    if not text:
-        raise AIError("bad_output")
     u = getattr(resp, "usage", None)
     return text, getattr(u, "input_tokens", 0) or 0, getattr(u, "output_tokens", 0) or 0
+
+
+def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool) -> tuple[str, int, int]:
+    body = {"model": settings.llm_model, "temperature": 0.2 if not json_mode else 0,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
+    try:
+        r = httpx.post(f"{settings.llm_base_url}/chat/completions", json=body, timeout=60,
+                       headers={"Authorization": f"Bearer {settings.llm_api_key}"})
+    except httpx.HTTPError as e:
+        log.warning("AI request failed: %s", e)
+        raise AIError("unavailable") from e
+    if r.status_code == 429:
+        raise AIError("rate_limited")
+    if r.status_code in (400, 413) and json_mode and "response_format" in r.text:
+        return _openai_compatible(prompt, max_tokens, False)  # provider without JSON mode
+    if r.status_code in (400, 413):
+        log.warning("AI bad request %s: %s", r.status_code, r.text[:300])
+        raise AIError("too_long")
+    if r.status_code >= 300:
+        log.warning("AI error %s: %s", r.status_code, r.text[:300])
+        raise AIError("unavailable")
+    try:
+        d = r.json()
+        text = (d["choices"][0]["message"].get("content") or "").strip()
+        u = d.get("usage") or {}
+    except (ValueError, KeyError, IndexError) as e:
+        raise AIError("bad_output") from e
+    return text, int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0)
+
+
+def complete(prompt: str, *, fast: bool = False, max_tokens: int = 1200, json_mode: bool = False) -> tuple[str, int, int]:
+    """Returns (text, input_tokens, output_tokens). Raises AIError."""
+    if settings.ai_provider == "anthropic":
+        text, i, o = _anthropic(prompt, fast, max_tokens)
+    elif settings.ai_provider == "openai":
+        text, i, o = _openai_compatible(prompt, max_tokens, json_mode)
+    else:
+        raise AIError("unavailable")
+    if not text:
+        raise AIError("bad_output")
+    return text, i, o
 
 
 def _json(text: str):
@@ -80,33 +121,50 @@ def _json(text: str):
         raise AIError("bad_output") from e
 
 
-def species_prompt(raw: str, lang: str, context: str) -> str:
+def species_prompt(tally: str, notes: str, lang: str, context: str, known: str = "") -> str:
     ln = LANG_NAMES.get(lang, "English")
-    return f"""Turn this wildlife guide's rough field tally into a clean species list.
+    return f"""Read a wildlife guide's field records and list every animal species they recorded.
 {context}
-Write common names in {ln}.
+The guide may have typed fast or dictated into a phone. Expect spelling mistakes ("grifon", "kingfischer"),
+speech-recognition errors ("links" for lynx, "wales" for whales, "who poe" for hoopoe), number words
+("forty two", "cuarenta y dos"), counts before or after the name ("x3", "times three", "por tres", "3 griffons",
+"griffons 3"), "pair"/"pareja" = 2, no punctuation between species, mixed English and Spanish, and quick
+corrections ("three no four griffons" means 4).
 
 Rules:
-- Include ONLY animals explicitly written in the notes. Never add a species that isn't mentioned.
-- Correct spelling to the standard common name for this region and add the scientific name.
-- If an entry is vague ("eagle", "some warblers", "a raptor") or you are not confident which species it is, keep the guide's wording as "name", set "sci" to "" and "sure" to false.
-- If the guide marks doubt ("?", "probably", "possible"), set "sure" to false but still give your best scientific name.
-- "count": the number given, or null if none. "pair" means 2.
-- "heard": true only if the notes say it was heard and not seen.
-- "star": true only if the guide marked it with "!" or called it a highlight.
-- "group": one of "birds", "mammals", "reptiles", "amphibians", "fish", "insects", "arachnids", "other".
+1. Include only animals the guide says were SEEN or HEARD today. Leave out animals they say they did NOT see
+   ("no lynx today", "we missed the bustards", "no vimos la nutria"), only hoped for, or talk about in general.
+2. Use the TALLY first. Also add species that appear only in the NOTES, if the notes say they were seen or heard.
+3. Write each "name" as the correct standard common name in {ln} for this region, correctly spelled,
+   and give its scientific name in "sci".
+4. "source": copy the guide's own words for this species EXACTLY as written, including their typos
+   (e.g. "fourty grifon vultures"). Never write a source that is not in the text.
+5. If a name is vague ("eagle", "some warblers", "a raptor") or you are not confident which species it is,
+   keep the guide's wording as "name", set "sci" to "" and "sure" to false. Never guess a species.
+6. If the guide shows doubt ("?", "probably", "possible", "creo que"), set "sure" to false but still give the
+   best name. If you corrected a name that could reasonably be two different species, set "sure" to false.
+7. "count": the number (after any correction), or null. "heard": true only if heard and not seen.
+   "star": true if marked "!" or called a highlight. "group": birds, mammals, reptiles, amphibians, fish,
+   insects, arachnids or other.
+{("Species this operator has recorded before (prefer these spellings when they match): " + known) if known else ""}
 
-Reply with only a JSON array like:
-[{{"name":"Griffon Vulture","sci":"Gyps fulvus","count":40,"heard":false,"sure":true,"star":false,"group":"birds"}}]
+Reply with only a JSON object:
+{{"species": [{{"name": "Griffon Vulture", "sci": "Gyps fulvus", "count": 40, "heard": false, "sure": true,
+"star": false, "group": "birds", "source": "fourty grifon vultures"}}]}}
 
-Guide's notes:
+TALLY:
 \"\"\"
-{raw[:6000]}
+{tally[:6000] or "(empty)"}
+\"\"\"
+
+NOTES:
+\"\"\"
+{notes[:8000] or "(empty)"}
 \"\"\""""
 
 
-def parse_species(raw: str, lang: str, context: str) -> tuple[list, int, int]:
-    text, i, o = complete(species_prompt(raw, lang, context), fast=True, max_tokens=3000)
+def parse_species(tally: str, notes: str, lang: str, context: str, known: str = "") -> tuple[object, int, int]:
+    text, i, o = complete(species_prompt(tally, notes, lang, context, known), max_tokens=3500, json_mode=True)
     return _json(text), i, o
 
 
@@ -123,6 +181,8 @@ Hard rules. Breaking any of these is a serious error:
 2. Mention only species on the list. A species marked [UNCONFIRMED] must be described as possible or probable, never as certain. A species marked [heard only] was heard, not seen.
 3. Don't try to mention every species; the report ends with a full checklist. Focus on what the notes treat as the highlights.
 4. If the notes are thin, write a shorter section rather than padding it.
+5. The notes may contain spelling mistakes and dictation errors. Understand what the guide meant and write it
+   correctly, with species names spelled properly, but never change a fact, number or time.
 
 {context}
 Day {n}{', ' + date_s if date_s else ''}{', ' + place if place else ''}
@@ -161,7 +221,7 @@ Reply with only JSON: {{"intro":"...","summary":"..."}}"""
 
 
 def draft_intro(**kw) -> tuple[dict, int, int]:
-    text, i, o = complete(intro_prompt(**kw), max_tokens=900)
+    text, i, o = complete(intro_prompt(**kw), max_tokens=900, json_mode=True)
     d = _json(text)
     if not isinstance(d, dict) or not isinstance(d.get("intro"), str):
         raise AIError("bad_output")
@@ -180,3 +240,25 @@ Facts (JSON):
 
 def draft_season(facts: dict, lang: str, tone: str) -> tuple[str, int, int]:
     return complete(season_prompt(facts, lang, tone), max_tokens=700)
+
+
+def proofread_prompt(text: str, lang: str) -> str:
+    return f"""Correct the spelling, grammar, punctuation and dictation errors in this text from a wildlife trip report.
+Language: {LANG_NAMES.get(lang, "English")}. Fix misspelt species names and capitalise them the way this language
+normally does. Keep the guide's words, tone, facts, numbers and times exactly; do not add, remove or reorder
+information, and do not make it longer. Keep the paragraph breaks.
+Reply with only the corrected text, nothing else.
+
+Text:
+\"\"\"
+{text[:12000]}
+\"\"\""""
+
+
+def proofread(text: str, lang: str) -> tuple[str, int, int]:
+    out, i, o = complete(proofread_prompt(text, lang), max_tokens=2500)
+    out = out.strip().strip('"').strip()
+    # a proofread that changes length a lot is not a proofread: refuse it
+    if not out or not (0.6 * len(text) <= len(out) <= 1.4 * len(text) + 40):
+        raise AIError("bad_output")
+    return out, i, o

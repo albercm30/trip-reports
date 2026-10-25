@@ -1,5 +1,5 @@
-"""One place that decides how to draft: Claude when it is configured and the plan has AI left,
-otherwise the free drafter. Callers get the text plus which engine wrote it."""
+"""One place that decides how to read and draft: AI when it is configured and the plan has AI left,
+otherwise the free parser and drafter. Callers get the result plus which engine produced it."""
 from __future__ import annotations
 
 import logging
@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from .. import plans
 from ..config import settings
+from sqlalchemy import select
+
 from ..models import AIUsage, Day, Organization, Sighting, Trip, User
 from . import ai, freedraft, insights as ins, species as sp, taxonomy
 from .reportdata import build_tally, group_key, group_label
@@ -43,20 +45,34 @@ def species_lines(day: Day) -> str:
     return "\n".join(out)
 
 
-def add_species_from_text(db: Session, org: Organization, user: User | None, trip: Trip, day: Day, raw: str) -> dict:
-    """Parse a rough tally into sightings on the day. Returns {'added', 'engine', 'error'}."""
-    engine, error, rows = "free", None, None
+def _org_species(db: Session, org: Organization) -> list[tuple[str, str, str]]:
+    """Species this operator has confirmed before: (name, scientific name, group)."""
+    rows = db.execute(select(Sighting.name, Sighting.sci, Sighting.group).join(Day).join(Trip)
+                      .where(Trip.org_id == org.id, Sighting.sure.is_(True), Sighting.name != "")
+                      .distinct().limit(2000)).all()
+    return [(n, sci, group_key(g)) for n, sci, g in rows]
+
+
+def add_species_from_text(db: Session, org: Organization, user: User | None, trip: Trip, day: Day, raw: str,
+                          notes: str = "") -> dict:
+    """Read the tally (and, with AI, the notes) into sightings on the day.
+    Returns {'added', 'engine', 'error', 'dropped'}."""
+    engine, error, rows, dropped = "free", None, None, 0
+    own = _org_species(db, org)
     if _use_ai(db, org):
         try:
-            data, i, o = ai.parse_species(raw, org.report_lang, _context(trip, org))
-            rows = sp.clean_ai_rows(data)
+            known = "; ".join(sorted({f"{n} ({sci})" if sci else n for n, sci, _ in own})[:150])
+            data, i, o = ai.parse_species(raw, notes, org.report_lang, _context(trip, org), known)
+            raw_rows = data.get("species") if isinstance(data, dict) else data
+            rows = sp.clean_ai_rows(data, raw + "\n" + notes)
+            dropped = max(0, len(raw_rows or []) - len(rows)) if isinstance(raw_rows, list) else 0
             _record(db, org, user, "species", i, o)
             engine = "ai"
         except ai.AIError as e:
             error = e.code
             log.info("AI species parse failed (%s), using free parser", e.code)
     if rows is None:
-        rows = sp.parse_tally(raw)
+        rows = sp.parse_tally(raw, sp.Vocab(own), org.report_lang)
     rows = taxonomy.check_rows(rows)
     existing = {(s.sci or s.name).strip().lower(): s for s in day.sightings}
     pos = len(day.sightings)
@@ -75,7 +91,7 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
             continue
         s = Sighting(day=day, position=pos, name=r["name"], sci=r["sci"], count=r["count"], heard=r["heard"],
                      sure=r["sure"], star=r["star"], group=group, taxon_key=r.get("taxon_key"),
-                     taxon_status=r.get("taxon_status", "unchecked"))
+                     taxon_status=r.get("taxon_status", "unchecked"), source=r.get("source", "")[:200])
         db.add(s)
         existing[key] = s
         pos += 1
@@ -83,7 +99,7 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
     day.raw_tally = ""
     day.approved = False
     db.commit()
-    return {"added": added, "engine": engine, "error": error}
+    return {"added": added, "engine": engine, "error": error, "dropped": dropped}
 
 
 def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day: Day) -> dict:
@@ -141,3 +157,18 @@ def draft_season(db: Session, org: Organization, user: User | None, data: "ins.I
         except ai.AIError as e:
             return {"engine": "free", "text": ins.free_season_text(data, org), "error": e.code}
     return {"engine": "free", "text": ins.free_season_text(data, org), "error": None}
+
+
+def proofread(db: Session, org: Organization, user: User | None, text: str) -> dict:
+    """Fix spelling, grammar and dictation errors in text the guide wrote. Needs AI."""
+    if not text.strip():
+        return {"text": text, "engine": "none", "error": None}
+    if not _use_ai(db, org):
+        return {"text": text, "engine": "none", "error": "unavailable"}
+    try:
+        out, i, o = ai.proofread(text, org.report_lang)
+        _record(db, org, user, "proofread", i, o)
+        db.commit()
+        return {"text": out, "engine": "ai", "error": None}
+    except ai.AIError as e:
+        return {"text": text, "engine": "none", "error": e.code}

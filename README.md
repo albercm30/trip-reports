@@ -9,7 +9,9 @@ The product name is a placeholder: change `APP_NAME` to rename it everywhere.
 - **Accounts and teams:** sign-up with a free trial, log in, password reset, guide invites with seat limits, owner and guide roles.
 - **Trips and days:** notes, place, date, photos (resized, location data stripped), and a species list per day. Everything saves as you type.
 - **Species from rough notes:** “40 griffons, lynx x1!, heard eagle owl, warbler?” becomes rows with counts, highlights, heard-only and doubtful flags. Names are checked against the free GBIF taxonomy, which also fills in scientific names.
-- **Drafting:** a free drafter builds the day report, opening and closing only from the guide's notes and species list. With an Anthropic API key it uses Claude instead, with strict no-invention rules, plan quotas and automatic fallback to the free drafter.
+- **Understanding messy input:** typos, phone-dictation errors ("links" for lynx), number words in English and Spanish, counts before or after names, no commas, quick corrections ("3 no 4") and negations ("no lynx today"). The free parser uses a built-in English/Spanish/scientific species dictionary with typo tolerance and learns each operator's own species. With an AI key (free with Groq) the AI also reads species from the notes, and every species must quote the guide's own words or it is dropped, so nothing is ever invented.
+- **Dictation:** a Dictate button on notes, tally and report boxes (browser speech recognition, free).
+- **Drafting and spelling:** a free drafter builds the day report, opening and closing only from the guide's notes and species list. With an AI key the AI writes them instead, fixing spelling and dictation errors without changing facts, and a **Fix spelling** button proofreads text the guide wrote. Plan quotas apply and it falls back to the free drafter automatically.
 - **Approval:** a guide approves each day; the report page shows what's missing before sending.
 - **Reports:** branded (logo, colour, sign-off) in English, Spanish, German or French, with a day-by-day species table. Guests get a private, revocable link; print to PDF; sightings export as CSV.
 - **Insights:** target-species success rates, best months per species, ready-to-copy website lines and a season summary.
@@ -47,7 +49,7 @@ Everything below has a free tier and needs no paid service.
    - Test with card `4242 4242 4242 4242`. Switch to live keys and live prices when you're ready to charge.
 4. **Legal pages:** set `LEGAL_NAME`, `LEGAL_ADDRESS` and `SUPPORT_EMAIL`, and have the privacy and terms pages reviewed before taking real customers.
 
-Optional later: `ANTHROPIC_API_KEY` for Claude drafting, `SMTP_*` for emailed resets and invites (without it, links are shown on screen), `STORAGE=s3` for S3 or Cloudflare R2 when photos outgrow the database.
+Free AI: create a key at console.groq.com (no card) and set `LLM_API_KEY` in Render. Optional later: `ANTHROPIC_API_KEY` for Claude, `SMTP_*` for emailed resets and invites (without it, links are shown on screen), `STORAGE=s3` for S3 or Cloudflare R2 when photos outgrow the database.
 
 ## Project layout
 
