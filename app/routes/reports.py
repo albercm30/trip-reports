@@ -24,7 +24,7 @@ router = APIRouter()
 def print_view(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     trip = get_trip(db, user, trip_id)
     return render(request, "report/page.html", {"trip": trip, "rorg": user.org, "print": True, "media_qs": "",
-                                                "R": build_report(trip, user.org, settings.app_name)}, user=user)
+                                                "R": build_report(trip, user.org, settings.name_for(user.org.report_lang))}, user=user)
 
 
 @router.post("/app/trips/{trip_id}/share")
@@ -53,7 +53,7 @@ def public_report(token: str, request: Request, db: Session = Depends(get_db)):
         raise NotFound()
     org = db.get(Organization, trip.org_id)
     resp = render(request, "report/page.html", {"trip": trip, "rorg": org, "public": True, "media_qs": f"?s={token}",
-                                                "R": build_report(trip, org, settings.app_name)})
+                                                "R": build_report(trip, org, settings.name_for(org.report_lang))})
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
     resp.headers["Referrer-Policy"] = "no-referrer"
     return resp

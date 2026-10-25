@@ -35,7 +35,7 @@ def example(request: Request, user=Depends(optional_user)):
                           signoff="Thank you for travelling with us.\nAlberto and the team" if lang == "en"
                           else "Gracias por viajar con nosotros.\nAlberto y el equipo",
                           show_credit=True, logo_key=None)
-    return render(request, "report/page.html", {"trip": trip, "rorg": org, "R": build_report(trip, org, settings.app_name),
+    return render(request, "report/page.html", {"trip": trip, "rorg": org, "R": build_report(trip, org, settings.name_for(org.report_lang)),
                                                  "example": True, "media_qs": ""}, user=user)
 
 

@@ -43,10 +43,22 @@ EX = {
 }
 
 NOTES = {
-    1: "Met group 8am. Cold, clear, frost on the car. Encinarejo dam all morning. Loads of vultures on the ridge, few black vultures. Imperial eagle pair displaying ~11. Picnic by river, kingfisher kept flying past. Afternoon at lynx viewpoints. 18:40 María spotted young lynx on far bank ~300m, 6 min in scopes then into the bushes!! Stags roaring at dusk.",
-    2: "Pre-dawn start, eagle owl calling near the track. No lynx, 5 hrs at viewpoint. Mouflon herd on rocky slope. Azure-winged magpies, few hawfinches. Probable Bonelli's very high, too far. Rain after lunch, hot chocolate in village.",
-    3: "Last morning. Female lynx + big kitten on sunny rock, ~20 min grooming and dozing!! Mongoose crossed track on way down. Golden eagle along ridge, crag martins at cliffs. Lunch in Andújar.",
+    "en": {
+        1: "Met group 8am. Cold, clear, frost on the car. Encinarejo dam all morning. Loads of vultures on the ridge, few black vultures. Imperial eagle pair displaying ~11. Picnic by river, kingfisher kept flying past. Afternoon at lynx viewpoints. 18:40 María spotted young lynx on far bank ~300m, 6 min in scopes then into the bushes!! Stags roaring at dusk.",
+        2: "Pre-dawn start, eagle owl calling near the track. No lynx, 5 hrs at viewpoint. Mouflon herd on rocky slope. Azure-winged magpies, few hawfinches. Probable Bonelli's very high, too far. Rain after lunch, hot chocolate in village.",
+        3: "Last morning. Female lynx + big kitten on sunny rock, ~20 min grooming and dozing!! Mongoose crossed track on way down. Golden eagle along ridge, crag martins at cliffs. Lunch in Andújar.",
+    },
+    "es": {
+        1: "Quedamos 8h en el hotel. Frío, despejado, escarcha en el coche. Presa del Encinarejo toda la mañana. Muchos buitres en la cresta, algunos negros. Pareja de imperiales en cortejo hacia las 11. Picnic junto al río, el martín pescador pasando todo el rato. Tarde en los miradores del lince. 18:40 María ve un lince joven en la otra orilla a unos 300 m, 6 min con los telescopios y se mete en el matorral!! Ciervos berreando al anochecer.",
+        2: "Salida antes del amanecer, búho real cantando cerca del camino. Sin lince, 5 h en el mirador. Grupo de muflones en la ladera rocosa. Rabilargos, algunos picogordos. Probable perdicera muy alta, demasiado lejos. Lluvia después de comer, chocolate caliente en el pueblo.",
+        3: "Última mañana. Hembra de lince + cachorro grande en una roca al sol, unos 20 min acicalándose y dormitando!! Meloncillo cruza el camino al bajar. Águila real por la cresta, aviones roqueros en los cortados. Comida en Andújar.",
+    },
 }
+PLACE_NAMES = {
+    "en": {1: "Encinarejo dam and Jándula river", 2: "La Lastrilla track", 3: "Upper Jándula valley"},
+    "es": {1: "Presa del Encinarejo y río Jándula", 2: "Camino de La Lastrilla", 3: "Alto Jándula"},
+}
+LOCATION = {"en": "Sierra de Andújar, Jaén, Spain", "es": "Sierra de Andújar, Jaén, España"}
 
 
 def _lang(org: Organization) -> str:
@@ -73,18 +85,18 @@ def build_example_trip(lang: str, guide: str = "") -> Trip:
     lang = "es" if lang == "es" else "en"
     X = EX[lang]
     start = date.today() - timedelta(days=12)
-    t = Trip(title=X["title"], location="Sierra de Andújar, Jaén, Spain", start_date=start, guests=6,
+    t = Trip(title=X["title"], location=LOCATION[lang], start_date=start, guests=6,
              guides=guide or "Alberto", is_demo=True, intro="", summary="")
     specs = {
-        1: ("Encinarejo dam and Jándula river", X["d1"], [("lynx", 1, {"star": True}), ("deer", 35, {}), ("imp", 2, {"star": True}),
+        1: (PLACE_NAMES[lang][1], X["d1"], [("lynx", 1, {"star": True}), ("deer", 35, {}), ("imp", 2, {"star": True}),
                                                           ("grif", 60, {}), ("cin", 8, {}), ("king", 1, {}), ("mag", 20, {})]),
-        2: ("La Lastrilla track", X["d2"], [("owl", None, {"heard": True}), ("mouf", 12, {}), ("mag", 25, {}), ("hawf", 3, {}),
+        2: (PLACE_NAMES[lang][2], X["d2"], [("owl", None, {"heard": True}), ("mouf", 12, {}), ("mag", 25, {}), ("hawf", 3, {}),
                                             ("bon", 1, {"sure": False}), ("cin", 2, {}), ("grif", 30, {})]),
-        3: ("Upper Jándula valley", X["d3"], [("lynx", 2, {"star": True}), ("mong", 1, {}), ("gold", 1, {}), ("crag", 15, {}),
+        3: (PLACE_NAMES[lang][3], X["d3"], [("lynx", 2, {"star": True}), ("mong", 1, {}), ("gold", 1, {}), ("crag", 15, {}),
                                               ("deer", 18, {}), ("grif", 25, {}), ("sard", 4, {})]),
     }
     for n, (place, narrative, sp) in specs.items():
-        d = Day(position=n - 1, date=start + timedelta(days=n - 1), place=place, notes=NOTES[n], narrative=narrative,
+        d = Day(position=n - 1, date=start + timedelta(days=n - 1), place=place, notes=NOTES[lang][n], narrative=narrative,
                 approved=True, approved_by=guide or "Alberto")
         d.sightings = [_sighting(lang, k, c, position=i, **kw) for i, (k, c, kw) in enumerate(sp)]
         t.days.append(d)
@@ -126,8 +138,10 @@ POOL = [
     ("gwood", "Iberian Green Woodpecker", "Pito real ibérico", "Picus sharpei", "b", .45, (1, 2), .4),
     ("bwhe", "Black Wheatear", "Collalba negra", "Oenanthe leucura", "b", .15, (1, 2), 0),
 ]
-PLACES = ["Encinarejo dam", "Jándula river", "La Lastrilla track", "Upper Jándula valley", "Santuario viewpoint",
-          "Los Escoriales", "Río Yeguas", "Cerro del Cabezo"]
+PLACES = {"en": ["Encinarejo dam", "Jándula river", "La Lastrilla track", "Upper Jándula valley", "Santuario viewpoint",
+                 "Los Escoriales", "Río Yeguas", "Cerro del Cabezo"],
+          "es": ["Presa del Encinarejo", "Río Jándula", "Camino de La Lastrilla", "Alto Jándula", "Mirador del Santuario",
+                 "Los Escoriales", "Río Yeguas", "Cerro del Cabezo"]}
 
 
 def add_demo_season(db: Session, org: Organization, user_id: str | None, guide: str, n: int = 16) -> int:
@@ -148,10 +162,10 @@ def add_demo_season(db: Session, org: Organization, user_id: str | None, guide: 
             title = titles[4] if r.random() < .5 else titles[2]
         else:
             title = titles[0] if r.random() < .5 else titles[1]
-        t = Trip(org_id=org.id, title=title, location="Sierra de Andújar, Jaén, Spain", start_date=start,
+        t = Trip(org_id=org.id, title=title, location=LOCATION[lang], start_date=start,
                  guests=2 + int(r.random() * 7), guides=guide or "Alberto", is_demo=True, created_by=user_id)
         for di in range(nd):
-            d = Day(position=di, date=start + timedelta(days=di), place=r.choice(PLACES), approved=True)
+            d = Day(position=di, date=start + timedelta(days=di), place=r.choice(PLACES[lang]), approved=True)
             pos = 0
             for key, en, es, sci, g, p, (lo, hi), heard_p in POOL:
                 prob = p[m] if isinstance(p, list) else p

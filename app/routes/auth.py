@@ -129,7 +129,7 @@ def forgot(request: Request, db: Session = Depends(get_db), email: str = Form(""
             db.commit()
             link = f"{settings.app_url}/reset/{token}"
             lang = user.ui_lang
-            sent = mail.send(user.email, translate(lang, "Reset your {app} password", app=settings.app_name),
+            sent = mail.send(user.email, translate(lang, "Reset your {app} password", app=settings.name_for(lang)),
                              translate(lang, "Use this link to choose a new password. It works for 2 hours:\n\n{link}\n\n"
                                              "If you didn't ask for this, ignore this email.", link=link))
             if not sent and not settings.is_production:

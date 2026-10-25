@@ -129,8 +129,20 @@
 
   /* ---------- dictation (browser speech recognition, free; hidden where unsupported) */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var activeRec = null;
-  function stopDictation() { if (activeRec) { try { activeRec.stop(); } catch (e) {} } }
+  var DICT_LANGS = [["es-ES", "ES"], ["en-GB", "EN"], ["de-DE", "DE"], ["fr-FR", "FR"]];
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  var active = null; // {stop: fn}
+  function stopDictation() { if (active) active.stop(); }
+  function getDictLang() {
+    var v = null;
+    try { v = localStorage.getItem("dictLang"); } catch (e) {}
+    if (v && DICT_LANGS.some(function (l) { return l[0] === v; })) return v;
+    return (document.documentElement.lang || "en").slice(0, 2) === "es" ? "es-ES" : "en-GB";
+  }
+  function setDictLang(v) {
+    try { localStorage.setItem("dictLang", v); } catch (e) {}
+    $$("select.dictate-lang").forEach(function (s) { s.value = v; });
+  }
   if (SR) $$("textarea[data-dictate]").forEach(function (box) {
     if (box.disabled || box.closest("fieldset[disabled]")) return;
     var bar = document.createElement("div");
@@ -142,13 +154,19 @@
     var label = t("Dictate"), stopLabel = t("Stop dictating");
     btn.innerHTML = '<span class="mic" aria-hidden="true"></span><span class="lbl"></span>';
     btn.querySelector(".lbl").textContent = label;
+    var sel = document.createElement("select");
+    sel.className = "dictate-lang";
+    sel.setAttribute("aria-label", t("Language you will speak"));
+    DICT_LANGS.forEach(function (l) { var o = document.createElement("option"); o.value = l[0]; o.textContent = l[1]; sel.appendChild(o); });
+    sel.value = getDictLang();
+    sel.addEventListener("change", function () { setDictLang(sel.value); if (session) { session.stop(); setTimeout(function () { btn.click(); }, 300); } });
     var live = document.createElement("span");
     live.className = "hint dictate-live";
     live.setAttribute("aria-live", "polite");
-    bar.appendChild(btn); bar.appendChild(live);
+    bar.appendChild(btn); bar.appendChild(sel); bar.appendChild(live);
     box.insertAdjacentElement("afterend", bar);
     var sep = box.getAttribute("data-dictate-sep") || " ";
-    var rec = null;
+    var session = null;
 
     function insert(text) {
       text = text.trim();
@@ -170,30 +188,55 @@
       if (!on) live.textContent = "";
     }
     btn.addEventListener("click", function () {
-      if (rec) { rec.stop(); return; }
+      if (session) { session.stop(); return; }
       stopDictation();
-      rec = new SR();
-      activeRec = rec;
-      rec.lang = box.getAttribute("data-dictate-lang") || document.documentElement.lang || "en-GB";
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.onresult = function (ev) {
-        var interim = "";
-        for (var i = ev.resultIndex; i < ev.results.length; i++) {
-          var r = ev.results[i];
-          if (r.isFinal) insert(r[0].transcript); else interim += r[0].transcript;
-        }
-        live.textContent = interim ? "… " + interim : t("Listening…");
+      // One session = keep listening until the guide presses Stop. Browsers end recognition after a
+      // pause (phones after every sentence), so it restarts by itself while the session is on.
+      var wanted = true, rec = null, quiet = 0, lastFinal = "";
+      session = active = {
+        stop: function () { wanted = false; if (rec) { try { rec.stop(); } catch (e) {} } else finish(); }
       };
-      rec.onerror = function (ev) {
-        if (ev.error === "not-allowed" || ev.error === "service-not-allowed") toast(t("Allow microphone access in your browser to dictate."));
-        else if (ev.error === "no-speech") toast(t("Didn't hear anything. Try again closer to the microphone."));
-        else if (ev.error === "network") toast(t("Dictation needs an internet connection."));
-        else if (ev.error !== "aborted") toast(t("Dictation stopped. Try again."));
-      };
-      rec.onend = function () { setOn(false); if (activeRec === rec) activeRec = null; rec = null; };
-      try { rec.start(); setOn(true); live.textContent = t("Listening…"); box.focus(); }
-      catch (e) { rec = null; setOn(false); toast(t("Dictation stopped. Try again.")); }
+      function finish() { setOn(false); if (active === session) active = null; session = null; }
+      function startOnce() {
+        rec = new SR();
+        rec.lang = sel.value;
+        rec.continuous = !isAndroid;   // Android repeats words in continuous mode
+        rec.interimResults = true;
+        rec.maxAlternatives = 1;
+        rec.onresult = function (ev) {
+          var interim = "";
+          quiet = 0;
+          for (var i = ev.resultIndex; i < ev.results.length; i++) {
+            var r = ev.results[i], tr = r[0].transcript;
+            if (r.isFinal) {
+              if (tr.trim() && tr.trim() !== lastFinal) insert(tr);
+              lastFinal = tr.trim();
+            } else interim += tr;
+          }
+          live.textContent = interim ? "… " + interim : t("Listening…");
+        };
+        rec.onerror = function (ev) {
+          if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+            wanted = false; toast(t("Allow microphone access in your browser to dictate."));
+          } else if (ev.error === "language-not-supported") {
+            wanted = false; toast(t("This browser can't dictate in that language. Try Chrome, or another language."));
+          } else if (ev.error === "network") {
+            wanted = false; toast(t("Dictation needs an internet connection."));
+          } else if (ev.error === "no-speech") {
+            if (++quiet >= 3) { wanted = false; toast(t("Didn't hear anything. Try again closer to the microphone.")); }
+          } else if (ev.error !== "aborted") {
+            wanted = false; toast(t("Dictation stopped. Try again."));
+          }
+        };
+        rec.onend = function () {
+          rec = null;
+          if (wanted) setTimeout(function () { if (wanted) { try { startOnce(); } catch (e) { finish(); } } else finish(); }, 150);
+          else finish();
+        };
+        rec.start();
+      }
+      try { startOnce(); setOn(true); live.textContent = t("Listening…"); box.focus(); }
+      catch (e) { finish(); toast(t("Dictation stopped. Try again.")); }
     });
   });
   // stop listening before a form is sent or the page is left

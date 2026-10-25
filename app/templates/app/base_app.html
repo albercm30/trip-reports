@@ -6,6 +6,7 @@
     {% include "_brand.html" %}
     <span class="grow"></span>
     <span class="save-state" id="save-state" aria-live="polite"></span>
+    <span class="langs no-print" aria-label="{{ _('Language') }}">{% for code, label in UI_LANGS.items() %}<a href="/lang/{{ code }}" aria-current="{{ 'true' if lang == code else 'false' }}" lang="{{ code }}">{{ code|upper }}</a>{% endfor %}</span>
     <form method="post" action="/logout" class="no-print"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost">{{ _('Log out') }}</button></form>
   </div>
   <nav class="nav" aria-label="{{ _('Main') }}">

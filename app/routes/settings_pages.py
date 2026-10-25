@@ -106,7 +106,7 @@ def invite(request: Request, db: Session = Depends(get_db), user: User = Depends
     link = f"{settings.app_url}/invite/{token}"
     if email:
         mail.send(email, translate(user.ui_lang, "{who} invited you to {org} on {app}", who=user.name or user.email,
-                                   org=org.name, app=settings.app_name),
+                                   org=org.name, app=settings.name_for(user.ui_lang)),
                   translate(user.ui_lang, "Join the team to write trip reports together. This link works for 7 days:\n\n{link}",
                             link=link))
     resp = redirect("/app/team", "Invite link created. Send it to your guide; it works for 7 days.")

@@ -28,8 +28,8 @@
   <h2 class="sec" id="closing">{{ _('Opening and closing') }}</h2>
   <p class="hint" style="margin-top:-4px">{{ _('Write these once the days are done, or let the app draft both from your day reports.') }}</p>
   <div class="panel">
-    <label class="field"><span>{{ _('Opening paragraph') }}</span><textarea class="prose" name="intro" data-dictate data-dictate-lang="{{ {'en':'en-GB','es':'es-ES','de':'de-DE','fr':'fr-FR'}.get(org.report_lang, 'en-GB') }}" style="min-height:140px">{{ trip.intro }}</textarea></label>
-    <label class="field"><span>{{ _('Closing paragraph') }}</span><textarea class="prose" name="summary" data-dictate data-dictate-lang="{{ {'en':'en-GB','es':'es-ES','de':'de-DE','fr':'fr-FR'}.get(org.report_lang, 'en-GB') }}" style="min-height:140px">{{ trip.summary }}</textarea></label>
+    <label class="field"><span>{{ _('Opening paragraph') }}</span><textarea class="prose" name="intro" data-dictate style="min-height:140px">{{ trip.intro }}</textarea></label>
+    <label class="field"><span>{{ _('Closing paragraph') }}</span><textarea class="prose" name="summary" data-dictate style="min-height:140px">{{ trip.summary }}</textarea></label>
     {% if can_write %}
     <div class="row">
       <button class="btn primary" formaction="/app/trips/{{ trip.id }}/intro/draft" data-busy="{{ _('Writing the opening and closing…') }}" {% if not trip.days %}disabled{% endif %}>{{ _('Draft opening and closing') }}</button>
@@ -74,10 +74,10 @@
         <label class="field"><span>{{ _('Date') }}</span><input type="date" name="date" value="{{ d.date.isoformat() if d.date else '' }}"></label>
         <label class="field"><span>{{ _('Where you went') }}</span><input type="text" name="place" value="{{ d.place }}" maxlength="200" placeholder="{{ _('Encinarejo dam, Jándula river') }}"></label>
       </div>
-      <label class="field"><span>{{ _('Your notes') }}</span><textarea name="notes" data-dictate data-dictate-lang="{{ {'en':'en-GB','es':'es-ES','de':'de-DE','fr':'fr-FR'}.get(org.report_lang, 'en-GB') }}" rows="5" placeholder="{{ _('What happened today: highlights, weather, funny moments, the lynx at the dam at 18:40…') }}">{{ d.notes }}</textarea><small>{{ _('Press Dictate and talk, or use the microphone on your phone\'s keyboard.') }}</small></label>
+      <label class="field"><span>{{ _('Your notes') }}</span><textarea name="notes" data-dictate rows="5" placeholder="{{ _('What happened today: highlights, weather, funny moments, the lynx at the dam at 18:40…') }}">{{ d.notes }}</textarea><small>{{ _('Press Dictate and talk, or use the microphone on your phone\'s keyboard.') }}</small></label>
 
       <h2 class="sec">{{ _('Sightings') }}</h2>
-      <label class="field"><span>{{ _('Paste or dictate your tally') }}</span><textarea name="raw_tally" data-dictate data-dictate-sep=", " data-dictate-lang="{{ {'en':'en-GB','es':'es-ES','de':'de-DE','fr':'fr-FR'}.get(org.report_lang, 'en-GB') }}" rows="3" placeholder="{{ _('40 griffon vultures, 2 black vultures, imperial eagle pair, lynx x1!, heard eagle owl, bonelli\'s eagle?') }}">{{ d.raw_tally }}</textarea>
+      <label class="field"><span>{{ _('Paste or dictate your tally') }}</span><textarea name="raw_tally" data-dictate data-dictate-sep=", " rows="3" placeholder="{{ _('40 griffon vultures, 2 black vultures, imperial eagle pair, lynx x1!, heard eagle owl, bonelli\'s eagle?') }}">{{ d.raw_tally }}</textarea>
         <small>{% if ai_on %}{{ _('Write or say it any way you like: typos, number words and no commas are fine. Species mentioned in your notes are picked up too. Add “?” for doubtful IDs and “!” for highlights.') }}{% else %}{{ _('Write or say it any way you like: typos and number words are fine. Add “?” for doubtful IDs, “!” for highlights and “heard” for heard-only.') }}{% endif %}</small></label>
       {% if can_write %}
       <div class="row">
@@ -109,7 +109,7 @@
       </div>
 
       <h2 class="sec" id="narr-{{ d.id }}">{{ _('Day report') }}</h2>
-      <label class="field"><span class="sr">{{ _('Day {n} report', n=n) }}</span><textarea class="prose" name="narrative" data-dictate data-dictate-lang="{{ {'en':'en-GB','es':'es-ES','de':'de-DE','fr':'fr-FR'}.get(org.report_lang, 'en-GB') }}" placeholder="{{ _('Write it yourself, or let the app draft it from your notes and sightings.') }}">{{ d.narrative }}</textarea></label>
+      <label class="field"><span class="sr">{{ _('Day {n} report', n=n) }}</span><textarea class="prose" name="narrative" data-dictate placeholder="{{ _('Write it yourself, or let the app draft it from your notes and sightings.') }}">{{ d.narrative }}</textarea></label>
       {% if can_write %}
       <div class="row">
         <button class="btn primary" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/draft" data-busy="{{ _('Writing the day report…') }}" {% if d.narrative %}data-confirm="{{ _('Replace the current day report with a new draft?') }}"{% endif %}>{{ _('Redraft') if d.narrative else _('Draft day report') }}</button>

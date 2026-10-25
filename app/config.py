@@ -35,6 +35,7 @@ def _load_dotenv() -> None:
 class Settings:
     env: str = "development"
     app_name: str = "Trip Reports"
+    app_name_es: str = "Informes de Viaje"
     app_url: str = "http://localhost:8000"
     secret_key: str = ""
     database_url: str = "sqlite:///./tripreports.db"
@@ -74,6 +75,10 @@ class Settings:
     support_email: str = ""
     legal_name: str = ""
     legal_address: str = ""
+
+    def name_for(self, lang: str) -> str:
+        """The product name in a language (a real brand would use one name everywhere)."""
+        return self.app_name_es if lang == "es" else self.app_name
 
     @property
     def is_production(self) -> bool:
@@ -119,6 +124,8 @@ def load_settings() -> Settings:
     return Settings(
         env=env,
         app_name=_env("APP_NAME", "Trip Reports"),
+        app_name_es=_env("APP_NAME_ES") or _env("APP_NAME_ES_DEFAULT", "") or (
+            "Informes de Viaje" if not _env("APP_NAME") else _env("APP_NAME")),
         app_url=_env("APP_URL", "http://localhost:8000").rstrip("/"),
         secret_key=secret,
         database_url=db,

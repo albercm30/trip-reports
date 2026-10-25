@@ -79,7 +79,7 @@ def trip_page(trip_id: str, request: Request, db: Session = Depends(get_db), use
            "open_day": request.query_params.get("day"), "is_new": request.query_params.get("new") == "1",
            "ai_on": settings.ai_enabled, "REPORT_LANGS": REPORT_LANGS}
     if tab == "report":
-        ctx["R"] = build_report(trip, org, settings.app_name)
+        ctx["R"] = build_report(trip, org, settings.name_for(org.report_lang))
         ctx["checks"] = report_checks(trip)
         ctx["ready"] = not any(c[0] == "warn" for c in ctx["checks"])
         ctx["rorg"] = org

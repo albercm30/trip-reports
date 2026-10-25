@@ -34,7 +34,8 @@ JS_STRINGS = ["Saving…", "Saved", "Not saved", "Unsaved changes", "Copied.", "
               "Draft ready, built from your numbers. Edit before you publish it.",
               "Dictate", "Stop dictating", "Listening…", "Allow microphone access in your browser to dictate.",
               "Didn't hear anything. Try again closer to the microphone.", "Dictation needs an internet connection.",
-              "Dictation stopped. Try again."]
+              "Dictation stopped. Try again.", "Language you will speak",
+              "This browser can't dictate in that language. Try Chrome, or another language."]
 templates.env.globals.update(settings=settings, plans=plans, UI_LANGS=UI_LANGS)
 
 
@@ -43,7 +44,7 @@ def render(request: Request, name: str, ctx: dict | None = None, *, user=None, s
     flash = request.cookies.get(FLASH)
     data = {
         "request": request, "lang": lang, "user": user, "org": getattr(user, "org", None),
-        "csrf": csrf_token(request), "app_name": settings.app_name,
+        "csrf": csrf_token(request), "app_name": settings.name_for(lang),
         "_": lambda text, **kw: translate(lang, text, **kw),
         "flash": translate(lang, unquote(flash)) if flash else None,
         "js_strings": {k: translate(lang, k) for k in JS_STRINGS} if lang != "en" else {},

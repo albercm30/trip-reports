@@ -326,3 +326,20 @@ def test_photos_in_database_storage(owner, monkeypatch):
     from app.models import Blob
     with SessionLocal() as db:
         assert db.query(Blob).count() == 0
+
+
+def test_everything_in_spanish(client):
+    client.cookies.set("lang", "es")
+    page = client.get("/").text
+    assert "Informes de Viaje" in page and "Prueba gratis" in page
+    signup(client)
+    client.post_form("/app/demo/example")
+    with SessionLocal() as db:
+        t = db.query(Trip).one()
+        assert t.location.endswith("España") and t.days[0].place.startswith("Presa del Encinarejo")
+        assert t.days[0].notes.startswith("Quedamos")
+        tid = t.id
+    report = client.get(f"/app/trips/{tid}?tab=report").text
+    assert "Informe creado con Informes de Viaje" in report and "Sierra de Andújar, Jaén, España" in report
+    days = client.get(f"/app/trips/{tid}?tab=days").text
+    assert 'href="/lang/en"' in days  # language switch in the app header

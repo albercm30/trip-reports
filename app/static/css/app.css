@@ -220,7 +220,7 @@ footer.site a{color:var(--muted)}
   .rpt-frame{background:none;padding:0}
 }
 .bar .btn,.brand{white-space:nowrap}
-@media (max-width:440px){.bar .langs{display:none}.bar-in{gap:8px}.bar .btn.small{padding:5px 9px}}
+@media (max-width:440px){.bar:not(.narrow) .langs{display:none}.bar.narrow .save-state{display:none}.bar-in{gap:8px}.bar .btn.small{padding:5px 9px}}
 footer.site .langs{margin-left:12px}
 /* species row: name across the top, scientific name + count below */
 .sp .names{display:contents}
@@ -239,3 +239,4 @@ footer.site .langs{margin-left:12px}
 @media (prefers-reduced-motion:no-preference){.btn.dictate.on .mic{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}}
 .dictate-live{font-style:italic;min-height:1em}
 .sp .heard-as{grid-column:1/-1;margin:0;font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}
+select.dictate-lang{width:auto;min-height:36px;padding:4px 8px;font-size:.85rem;font-weight:600}
