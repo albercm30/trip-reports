@@ -311,6 +311,11 @@ WRITING_RULES = """What you may do:
   best sighting (marked [highlight], or what the notes make most of) and give it a sentence of its own with every
   detail the notes give; group the rest naturally.
 - Use the counts from the species list. If the notes and the list disagree (a correction like "3 no 4"), the list is right.
+- Use the species names exactly as written in the species list.
+- Read naturally: vary how sentences start, put related species together in one sentence (both vultures, all the
+  dolphins) and avoid flat filler like "were also present" or "there were". Write complete sentences, never fragments.
+- For [UNCONFIRMED] species use natural wording such as "probably", "what was probably", "posiblemente",
+  "lo que probablemente era" (not "it was possible to see").
 - Add a few short warm phrases that state no fact ("a great outing", "thank you for sharing it with us").
 - Say where things happened only if the notes say so. Never assume sea, shore, cliffs, forest or sky.
 
@@ -319,7 +324,7 @@ What you must NOT add, unless the notes say it:
 - sounds, calls, songs, smells;
 - behaviour (jumping, playing, feeding, resting, approaching the boat...), appearance, colours or sizes of animals;
 - places (beach, cliffs, forest, harbour...), times, distances, ages (calves, juveniles), numbers;
-- what guests felt or did;
+- what guests felt, brought or did, and where animals were relative to you (nearby, in the distance, around us);
 - any species not on the list, and facts about a species from your own knowledge.
 Every sentence must be traceable to the notes or the species list. When in doubt, leave it out.
 A species marked [UNCONFIRMED] is "possible" or "probable", never certain. A species marked [heard only] was heard, not seen;

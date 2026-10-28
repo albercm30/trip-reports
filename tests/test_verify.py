@@ -198,3 +198,26 @@ def test_invented_details_heard_and_cut_text_are_caught():
                              notes="heard eagle owl") == []
     # Spanish notes support an English report: "mar de fondo" -> "sea"
     assert verify.check_text("We went out on a lumpy sea.", lang="en", species=[], notes="mar de fondo") == []
+
+
+def test_code_alone_reads_every_tally_case_even_if_the_ai_returns_nothing():
+    for c in evalcases.CASES:
+        if not c["tally"] or c["id"] == "cetaceos-la-palma" and False:
+            continue
+        t = (c["tally"] + "\n" + c["notes"]).strip()
+        rows, _ = verify.check_species_rows([], t, lang=c["lang"], tally=c["tally"])
+        assert evalcases.score(c, rows)["ok"], (c["id"], evalcases.score(c, rows))
+
+
+def test_species_corrections_ranges_and_canonical_names():
+    t = "un zifio, perdón, era un cachalote; calderones grises unos doce, perdón, catorce"
+    rows = [{"name": "Zifio", "sci": "Ziphius cavirostris", "count": 1, "source": "un zifio"},
+            {"name": "Cachalote", "sci": "Physeter macrocephalus", "count": 1, "source": "era un cachalote"},
+            {"name": "Risso", "sci": "Grampus griseus", "count": 12, "source": "calderones grises unos doce"}]
+    got = {r["sci"]: r for r in verify.check_species_rows(sp.clean_ai_rows(rows, t), t, lang="es", tally=t)[0]}
+    assert "Ziphius cavirostris" not in got and got["Grampus griseus"]["count"] == 14
+    assert got["Grampus griseus"]["name"] == "Calderón gris"  # the standard name, not the model's
+    t = "unos 15 con 3 crías de calderones tropicales"
+    r = verify.check_species_rows(sp.clean_ai_rows([{"name": "Ballena piloto tropical", "sci": "Globicephala macrorhynchus",
+                                                      "count": 18, "source": t}], t), t, lang="es")[0][0]
+    assert r["count"] == 15 and r["name"] == "Calderón tropical"

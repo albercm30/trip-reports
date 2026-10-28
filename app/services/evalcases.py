@@ -115,6 +115,62 @@ CASES = [
         "absent": [],
         "vague_ok": True,  # extra rows are fine only if unconfirmed and without a scientific name
     },
+    {
+        "id": "salida-completa", "lang": "es", "title": "Salida completa dictada",
+        "tally": "",
+        "notes": "Salida de las 10 con 22 personas. Mar de fondo del noroeste, algo de viento. A la media hora "
+                 "encontramos un grupo de calderones tropicales, serán unos 15 con 3 crías, muy tranquilos, se acercaron "
+                 "al barco. Luego un cachalote macho solo, vimos la cola al sumergirse! Más tarde delfines comunes, "
+                 "muchísimos, más de 100, saltando. De vuelta una tortuga verde. No vimos delfines mulares hoy.",
+        "expect": [
+            {"sci": ["Globicephala macrorhynchus"], "count": 15},
+            {"sci": ["Physeter macrocephalus"], "count": "any"},
+            {"sci": ["Delphinus delphis"], "count": 100},
+            {"sci": ["Chelonia mydas"], "count": "any"},
+        ],
+        "absent": ["Tursiops truncatus"],
+    },
+    {
+        "id": "correccion-especie", "lang": "es", "title": "Corrección de especie",
+        "tally": "un zifio, perdón, era un cachalote; 6 delfines moteados",
+        "notes": "",
+        "expect": [
+            {"sci": ["Physeter macrocephalus"], "count": "any"},
+            {"sci": ["Stenella frontalis"], "count": 6},
+        ],
+        "absent": ["Ziphius cavirostris"],
+    },
+    {
+        "id": "oidos", "lang": "es", "title": "Solo oídos",
+        "tally": "de noche se oyeron pardelas cenicientas; 2 tortugas bobas",
+        "notes": "",
+        "expect": [
+            {"sci": ["Calonectris borealis", "Calonectris diomedea"], "count": None, "heard": True},
+            {"sci": ["Caretta caretta"], "count": 2},
+        ],
+        "absent": [],
+    },
+    {
+        "id": "ranges", "lang": "en", "title": "Ranges and rough numbers",
+        "tally": "4 or 5 bottlenose, 10-12 spotted dolphins, a few common dolphins",
+        "notes": "",
+        "expect": [
+            {"sci": ["Tursiops truncatus"], "count": "any"},
+            {"sci": ["Stenella frontalis"], "count": "any"},
+            {"sci": ["Delphinus delphis"], "count": None},
+        ],
+        "absent": [],
+    },
+    {
+        "id": "beaked-whales", "lang": "en", "title": "Beaked whales and doubt",
+        "tally": "Blainvilles beaked whale x2 briefly, possible Cuviers too, no sperm whales",
+        "notes": "",
+        "expect": [
+            {"sci": ["Mesoplodon densirostris"], "count": 2},
+            {"sci": ["Ziphius cavirostris"], "count": "any", "sure": False},
+        ],
+        "absent": ["Physeter macrocephalus"],
+    },
 ]
 
 
@@ -145,6 +201,8 @@ def score(case: dict, rows: list[dict]) -> dict:
             problems.append(f"{exp['sci'][0]}: should be unconfirmed")
         if exp.get("sure") is True and not r.get("sure"):
             problems.append(f"{exp['sci'][0]}: should be confirmed")
+        if exp.get("heard") and not r.get("heard"):
+            problems.append(f"{exp['sci'][0]}: should be heard only")
         if exp.get("star") and not r.get("star"):
             problems.append(f"{exp['sci'][0]}: should be a highlight")
     absent = {_n(x) for x in case.get("absent", [])}

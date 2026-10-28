@@ -144,6 +144,8 @@ def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=
         current, current_problems = nxt, all_problems(nxt)
         if len(current_problems) <= len(best_problems):
             best, best_problems = current, current_problems
+    if isinstance(best, str) and best_problems:
+        best, best_problems = verify.prune(best, best_problems, species or [])
     return {"result": best, "problems": best_problems, "first_problems": first_problems}
 
 

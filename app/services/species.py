@@ -146,7 +146,11 @@ class Vocab:
     def _key(self, name, e):
         if not name:
             return
-        for k in {norm(name), sing_all(norm(name))}:
+        n = norm(name)
+        short = " ".join(w for w in n.split() if w not in ("de", "del", "of", "the", "la", "el"))
+        keys = {n, sing_all(n), short, sing_all(short)}
+        keys |= {k.replace("'", "") for k in keys}  # "bonellis eagle", "corys shearwater"
+        for k in keys:
             self.by_key.setdefault(k, e)
             self.by_nospace.setdefault(k.replace(" ", ""), e)
             words = k.split()
@@ -216,12 +220,15 @@ QUANTITY = re.compile(r"\b(some|several|few|a few|lots of|loads of|lots|loads|he
 DOUBT = re.compile(r"(\?|\b(probably|probable|prob|possible|poss|maybe|perhaps|likely|i think|not sure|"
                    r"posible|probablemente|quiz[aá]s?|tal vez|creo que|no seguro)\b)", re.I)
 HEARD = re.compile(r"\b(heard( only)?|calling|call(ed|ing)?|singing|o[ií]d[oa]s?|o[ií]mos|escuchad[oa]s?|"
-                   r"escuchamos|cantando)\b|\(h\)|(^|\s)h(\s|$)", re.I)
+                   r"escuchamos|cantando|oyeron|oy[oó]|o[ií]a|o[ií]an|oyendo|se escuch\w*|escucharon)\b|\(h\)|(^|\s)h(\s|$)",
+                   re.I)
 NEGATION = re.compile(r"^\s*(no|not|none|without|missed|dipped( on)?|didn'?t see|did not see|no sign of|sin|"
                       r"ning[uú]n[oa]?|no vimos|no hubo|ni|nada de|ni rastro)\b", re.I)
 FILLER = re.compile(r"\b(um+|uh+|erm|eh+|like|okay|ok|so|then|also|plus|we saw|we had|we spotted|saw|seen|got|"
                     r"and then|bueno|pues|vale|este|vimos|hemos visto|visto|vistos|vista|vistas|tambi[eé]n|"
-                    r"enorme|enormes|grande|grandes|peque[nñ]o|peque[nñ]a|precios[oa]s?|incre[ií]ble|espectacular|"
+                    r"solo|s[oó]lo|only|just|enorme|enormes|grande|grandes|era|eran|fue|fueron|was|were|se|briefly|brevemente|too|"
+                    r"de noche|por la noche|noche|ma[nñ]ana|tarde|at night|night|morning|afternoon|evening|today|hoy|"
+                    r"peque[nñ]o|peque[nñ]a|precios[oa]s?|incre[ií]ble|espectacular|"
                     r"preciosa|bonit[oa]s?|huge|big|small|little|beautiful|amazing|gorgeous|stunning|lovely|"
                     r"hab[ií]a|hubo|luego|despu[eé]s|the|a|an|un|una|el|la|los|las|of|de|del)\b", re.I)
 SPOKEN_PUNCT = re.compile(r"\b(comma|coma|full stop|period|punto( y coma)?|next|siguiente|new line|nueva l[ií]nea)\b", re.I)
@@ -236,6 +243,9 @@ def _prepare(text: str) -> str:
     s = unicodedata.normalize("NFKC", text or "")
     s = SPOKEN_PUNCT.sub(",", s)
     s = words_to_digits(s)
+    s = re.sub(r"\b(?:entre|between)\s+(\d{1,5})\s+(?:y|and)\s+(\d{1,5})\b", r"\1-\2", s, flags=re.I)
+    s = re.sub(r"\b(\d{1,5})\s*(?:or|o|to|a|-|–)\s*(\d{1,5})\b",
+               lambda m: m.group(2) if int(m.group(2)) >= int(m.group(1)) else m.group(0), s, flags=re.I)
     s = re.sub(r"(\d{1,5})\s*,?\s*(?:no|not|sorry|i mean|perd[oó]n|digo|mejor dicho)\s*,?\s*(\d{1,5})", r"\2", s, flags=re.I)
     s = re.sub(r"\b(a|an|unos?|unas?)\s+(?=\d)", "", s, flags=re.I)
     s = TIMES.sub("x", s)
@@ -336,7 +346,9 @@ GENERIC = {norm(w) for w in (
     "lizards frog frogs bat bats butterfly butterflies dragonfly dragonflies tit tits finch finches lark larks "
     "ave aves rapaz rapaces aguila aguilas buitre buitres curruca currucas pato patos gaviota gaviotas buho buhos "
     "halcon halcones garza garzas delfin delfines ballena ballenas ciervo serpiente lagartija rana murcielago "
-    "mariposa libelula").split()}
+    "mariposa libelula beaked whale beaked whales zifio zifios rorcual rorcuales tortuga tortugas turtle turtles "
+    "shearwater shearwaters pardela pardelas tern terns charran charranes shark sharks tiburon tiburones ray rays "
+    "manta mantas petrel petrels paino rorqual rorquals").split()}
 
 ATTR = re.compile(r"^(\d{1,5}\+?|x\d{1,5}|x|×|\(\d{1,5}\)|pair|pareja|couple|heard|o[ií]d[oa]s?|calling|"
                   r"singing|cantando|escuchad[oa]s?|h|\?|!+)$", re.I)
@@ -396,19 +408,31 @@ def parse_tally(text: str, vocab: Vocab | None = None, lang: str = "en") -> list
     """Split free text into species rows. Duplicates are merged keeping the highest count."""
     vocab = vocab or default_vocab()
     out: dict[str, dict] = {}
+    replace_last, last_key = False, None
     for chunk in SPLIT.split(_prepare(text)):
         if not chunk or chunk.lower() in ("and", "y", "e"):
             continue
         doubt = False
+        if CORRECTION.fullmatch(chunk.strip(" .")) or re.fullmatch(r"\s*(no|perd[oó]n|sorry)[\s,.]*", chunk, re.I):
+            replace_last = True  # "perdón" on its own: the next species replaces the previous one
+            continue
         for part in [p for run in _split_runs(chunk) for p in _segment(run, vocab)]:
             if DOUBT.search(part) and not re.sub(DOUBT, " ", FILLER.sub(" ", part)).strip(" ,.?"):
                 doubt = True  # "creo que", "maybe" on their own: about the next species
+                continue
+            if replace_last and re.fullmatch(r"\s*\d{1,5}\s*", part):
+                if last_key in out:  # "doce, perdón, catorce": a corrected count
+                    out[last_key]["count"] = int(part)
+                replace_last = False
                 continue
             row = parse_entry(part, vocab)
             if not row:
                 continue
             if doubt:
                 row["sure"], doubt = False, False
+            if replace_last and last_key in out:
+                del out[last_key]
+            replace_last = False
             e = row.pop("_entry", None)
             if e and lang == "es":
                 row["name"] = e["es"]
@@ -421,6 +445,7 @@ def parse_tally(text: str, vocab: Vocab | None = None, lang: str = "en") -> list
                 prev["sure"] = prev["sure"] and row["sure"]
             else:
                 out[key] = row
+            last_key = key
     return list(out.values())
 
 
