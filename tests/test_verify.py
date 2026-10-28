@@ -140,3 +140,36 @@ def test_names_without_scientific_name_are_looked_up():
     got = {r["sci"]: r for r in rows}
     assert set(got) == {"Stenella coeruleoalba", "Larus michahellis", "Balaenoptera edeni"}
     assert got["Stenella coeruleoalba"]["sure"] is False and got["Larus michahellis"]["sure"] is True
+
+
+def test_ai_species_mistakes_from_the_live_run_are_corrected():
+    """Real mistakes from a run against the live AI (Admin > Test accuracy)."""
+    cases = [("errores-dictado", [{"name": "Alcatraz", "sci": "Phalacrocorax carbo", "count": 2, "source": "un par de alcatraces"}]),
+             ("dudas-es", [{"name": "Delfín listado", "sci": "Stenella coeruleoalba", "count": 1, "sure": True,
+                            "source": "un delfín listado"}])]
+    for cid, rows in cases:
+        c = evalcases.by_id(cid)
+        got, _ = verify.check_species_rows(sp.clean_ai_rows(rows, c["tally"]), c["tally"], lang=c["lang"], tally=c["tally"])
+        assert evalcases.score(c, got)["ok"], (cid, evalcases.score(c, got))
+    c = evalcases.by_id("birding-andujar")
+    got, _ = verify.check_species_rows(sp.clean_ai_rows(
+        [{"name": "Imperial Eagle", "sci": "Aquila heliaca", "count": 2, "source": "imperial eagle pair!"}], c["tally"]),
+        c["tally"], lang="en", tally=c["tally"])
+    assert "Aquila heliaca" not in {r["sci"] for r in got} and "Aquila adalberti" in {r["sci"] for r in got}
+
+
+def test_checker_false_alarms_on_true_facts_are_ignored():
+    sp_ = [S(name="Cinereous Vulture", sci="Aegypius monachus", count=6, sure=True),
+           S(name="Delfín moteado del Atlántico", sci="Stenella frontalis", count=4, sure=True)]
+    kept = verify.drop_false_claims([{"what": "six Cinereous Vultures"}, {"what": "perched among the cliffs"},
+                                     {"what": "cuatro delfines moteados del Atlántico"}], sp_,
+                                    "6 black vultures, tres no cuatro delfines moteados", "en")
+    assert [k["what"] for k in kept] == ["perched among the cliffs"]
+
+
+def test_plural_and_short_names_are_recognised_in_text():
+    names = [e["en"] for e in verify.mentioned_species("two sperm whales, six cinereous vultures, three hoopoes")]
+    assert names == ["Sperm Whale", "Cinereous Vulture", "Eurasian Hoopoe"] or set(names) == {
+        "Sperm Whale", "Cinereous Vulture", "Eurasian Hoopoe"}
+    assert verify.mentioned_species("un martín pescador común pasó") and not any(
+        e["en"] == "Eurasian Crag Martin" for e in verify.mentioned_species("un martín pescador común pasó"))

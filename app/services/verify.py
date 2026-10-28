@@ -91,13 +91,14 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
         # 3. doubt and highlights right where the guide wrote the name: "posible zifio?", "tortuga boba!"
         mi = _find(src_n, marks) if src_n else -1
         after = marks[mi + len(src_n): mi + len(src_n) + 12].split()[:1] if mi >= 0 else []
-        if DOUBT.search(src) or "qmark" in after:
+        doubt_before = idx >= 0 and DOUBT.search(_clause_before(text_n, idx)[-30:])
+        if DOUBT.search(src) or "qmark" in after or doubt_before:
             r["sure"] = False
         if "!" in src or "xmark" in after:
             r["star"] = True
         # 4. if the guide literally wrote a species' name, that name wins over the model's guess
         if free and free.get("sci") and free.get("_entry") and r.get("sci") and norm(free["sci"]) != norm(r["sci"]) \
-                and (free.get("sure") or DOUBT.search(src)) and _exact_name(free["_entry"], src, vocab):
+                and (free.get("sure") or (DOUBT.search(src) and _exact_name(free["_entry"], src, vocab))):
             e = free.get("_entry") or {}
             if e:
                 changes.append(f"{r['name']}: corrected to {e['en']} as written by the guide")
@@ -202,10 +203,24 @@ def _names_index(vocab: Vocab) -> dict[str, dict]:
     idx = {}
     for e in vocab.entries:
         for n in (e.get("en"), e.get("es"), e.get("sci")):
-            k = sing_all(norm(n or ""))
-            if len(k) >= 4 and " " in k or len(k) >= 6:  # skip short one-word names that are common words
-                idx.setdefault(k, e)
+            for k in {norm(n or ""), sing_all(norm(n or ""))}:
+                if len(k) >= 4 and " " in k or len(k) >= 6:  # skip short one-word names that are common words
+                    idx.setdefault(k, e)
+    for tail, entries in vocab.tails.items():  # distinctive short English names: "hoopoe", "spoonbill"
+        if len(entries) != 1 or len(tail) < 5 or " " in tail or tail in idx or tail in GENERIC:
+            continue
+        e = entries[0]
+        others = sum(tail in sing_all(norm(f"{x.get('en', '')} {x.get('es', '')}")).split() or
+                     tail in norm(f"{x.get('en', '')} {x.get('es', '')}").split() for x in vocab.entries)
+        if norm(e.get("en", "")).split()[-1:] == [tail] and others == 1:
+            idx[tail] = e  # e.g. "martin" is out: "martín pescador" is a kingfisher
     return idx
+
+
+def _en_sing(w: str) -> str:
+    if len(w) > 4 and w.endswith("ies"):
+        return w[:-3] + "y"
+    return w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")) else w
 
 
 _INDEX: dict[int, dict] = {}
@@ -217,15 +232,16 @@ def mentioned_species(text: str, vocab: Vocab | None = None) -> list[dict]:
     index = _INDEX.get(id(vocab))
     if index is None:
         index = _INDEX[id(vocab)] = _names_index(vocab)
-    words = sing_all(norm(text)).split()
+    base = norm(text)
+    variants = [base.split(), sing_all(base).split(), [_en_sing(w) for w in base.split()]]
     found, seen = [], set()
-    for n in (4, 3, 2, 1):
-        for i in range(len(words) - n + 1):
-            k = " ".join(words[i:i + n])
-            e = index.get(k)
-            if e and e["sci"] not in seen:
-                seen.add(e["sci"])
-                found.append(e)
+    for words in variants:
+        for n in (4, 3, 2, 1):
+            for i in range(len(words) - n + 1):
+                e = index.get(" ".join(words[i:i + n]))
+                if e and e["sci"] not in seen:
+                    seen.add(e["sci"])
+                    found.append(e)
     return found
 
 
@@ -350,3 +366,21 @@ def tidy(text: str) -> str:
             continue  # a bold heading line on its own
         out.append(ln.replace("**", "").replace("__", ""))
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
+def drop_false_claims(claims: list[dict], species: list, notes: str, lang: str,
+                      allowed_numbers: set[int] | None = None) -> list[dict]:
+    """The checking model sometimes flags a true fact because the notes use another name or a correction
+    ("6 black vultures" vs "six Cinereous Vultures", "tres no cuatro" vs "cuatro"). A short quote that only
+    names listed species, with numbers the code accepts, is kept as supported."""
+    out = []
+    listed = {norm(getattr(s, "sci", "") or "") for s in species} - {""}
+    for c in claims:
+        q = c.get("what") or c.get("quote") or ""
+        named = [e for e in mentioned_species(q) if norm(e["sci"]) in listed] or \
+            [s for s in species if s.name and sing_all(norm(s.name)) in sing_all(norm(q))]
+        if named and len(q.split()) <= 7 and not check_text(q, lang=lang, species=species, notes=notes,
+                                                              allowed_numbers=allowed_numbers):
+            continue
+        out.append(c)
+    return out

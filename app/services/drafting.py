@@ -106,7 +106,8 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
     return {"added": added, "engine": engine, "error": error, "dropped": dropped}
 
 
-def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=None, as_text=lambda x: x) -> dict:
+def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=None, as_text=lambda x: x,
+                  species: list | None = None, allowed: set[int] | None = None) -> dict:
     """Write with the AI, then check it twice over: plain code (species, numbers, language, certainty,
     format) and a second AI call that quotes any detail the notes don't support. If either finds
     something, the AI rewrites once, told exactly what to fix. Returns the result and what's left."""
@@ -118,6 +119,8 @@ def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=
         found, i, o = ai.unsupported_claims(as_text(first), notes, species_txt)
         record("check", i, o)
         claims = [{"kind": "claim", "what": c["quote"], "why": c["why"]} for c in found]
+        if species is not None:
+            claims = verify.drop_false_claims(claims, species, notes, lang, allowed)
     except ai.AIError:
         pass
     all_first = problems + claims
@@ -153,8 +156,10 @@ def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day
                 finally:
                     day.narrative = old
 
+            allowed = {n, len(trip.days)} | ({trip.guests} if trip.guests else set())
             out = checked_draft(write, check, day.notes or "", lines, trip.report_lang,
-                                record=lambda k, i, o: _record(db, org, user, k, i, o))
+                                record=lambda k, i, o: _record(db, org, user, k, i, o),
+                                species=list(day.sightings), allowed=allowed)
             day.narrative = verify.tidy(out["result"])
             day.approved = False
             db.commit()

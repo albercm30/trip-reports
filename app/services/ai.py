@@ -302,7 +302,8 @@ WRITING_RULES = """What you may do:
 - Combine and reorder the notes into fluent, well-built sentences, grouped in a sensible order
   (how the outing went, the main sightings, anything else worth remembering).
 - Use the counts from the species list, and call something a highlight if the notes or the list say so.
-- Add a few short warm phrases that state no fact ("a great morning at sea", "thank you for sharing it with us").
+- Add a few short warm phrases that state no fact ("a great outing", "thank you for sharing it with us").
+- Say where things happened only if the notes say so. Never assume sea, shore, cliffs, forest or sky.
 
 What you must NOT add, unless the notes say it:
 - weather, sky, light, sun, wind, sea state or colours;
@@ -356,7 +357,9 @@ List every detail in the report that the notes and species list do not support: 
 animal behaviour, appearance or colours, places, times, numbers, ages (calves...), people's feelings or actions,
 species facts from general knowledge, species not on the list, and anything stated as certain that the notes call
 possible. Warm phrases that state no fact ("a great day at sea", "thank you for joining us") are fine: don't list them.
-Translations and rewording of what the notes say are fine.
+Translations and rewording of what the notes say are fine. The SPECIES LIST gives the correct names and counts of
+what the guide wrote (for example "black vultures" in the notes is the Cinereous Vulture on the list, and "3 no 4"
+means 4), so those names and counts are supported. Places (sea, shore, cliffs, water, forest) count as details.
 
 "quote" must be copied EXACTLY from the report (a short phrase, not a whole paragraph).
 Reply with only JSON: {{"unsupported": [{{"quote": "...", "why": "..."}}]}}  (an empty list if everything is supported)
@@ -378,7 +381,7 @@ REPORT:
 def unsupported_claims(text: str, notes: str, species_lines: str) -> tuple[list[dict], int, int]:
     """Details in a draft that the notes don't support, as quoted by a second, checking model call.
     Quotes that aren't really in the draft are ignored, so the checker can't invent problems either."""
-    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=700, json_mode=True)
+    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=700, json_mode=True, effort="medium")
     d = _json(out)
     items = d.get("unsupported", []) if isinstance(d, dict) else d if isinstance(d, list) else []
     clean, low = [], " ".join(text.lower().split())

@@ -118,7 +118,7 @@ def accuracy_run(case_id: str, request: Request, user: User = Depends(admin)):
             def check(text):
                 return verify.check_text(text, lang=lang, species=species, notes=notes_all, allowed_numbers={1})
 
-            res = checked_draft(write, check, notes_all, lines, lang)
+            res = checked_draft(write, check, notes_all, lines, lang, species=species, allowed={1})
             out["draft"] = {"text": verify.tidy(res["result"]), "problems": res["problems"],
                             "first_try_problems": len(res["first_problems"]),
                             "fixed": [p["what"] for p in res["first_problems"]]}
