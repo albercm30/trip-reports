@@ -89,6 +89,8 @@ def accuracy_run(case_id: str, request: Request, user: User = Depends(admin)):
         r.pop("_entry", None)
     out["free"] = evalcases.score(case, free)
     t0 = time.time()
+    ai.USED.clear()
+    ai.SKIPPED.clear()
     rows = None
     if settings.ai_enabled:
         try:
@@ -125,4 +127,6 @@ def accuracy_run(case_id: str, request: Request, user: User = Depends(admin)):
         except ai.AIError as e:
             out["draft_error"] = e.code
     out["seconds"] = round(time.time() - t0, 1)
+    out["models_used"] = {m: ai.USED.count(m) for m in dict.fromkeys(ai.USED)}
+    out["models_skipped"] = list(dict.fromkeys(ai.SKIPPED))
     return JSONResponse(out)

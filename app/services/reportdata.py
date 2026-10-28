@@ -172,7 +172,8 @@ def report_checks(trip) -> list[tuple[str, str, dict]]:
             out.append(("warn", "Day {n} hasn't been approved yet.", {"n": i}))
         if d.narrative.strip():
             from .verify import day_problems
-            k = len(day_problems(d, trip, i))
+            from .verify import stored_flags
+            k = len(day_problems(d, trip, i)) + len(stored_flags(d))
             if k:
                 out.append(("warn", "Day {n}: {k} thing(s) in the text to check against your notes.", {"n": i, "k": k}))
         u = sum(1 for s in d.sightings if not s.sure)

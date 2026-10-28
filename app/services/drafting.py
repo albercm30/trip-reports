@@ -2,6 +2,7 @@
 otherwise the free parser and drafter. Callers get the result plus which engine produced it."""
 from __future__ import annotations
 
+import json
 import logging
 
 from sqlalchemy.orm import Session
@@ -109,12 +110,17 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
 
 
 def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=None, as_text=lambda x: x,
-                  species: list | None = None, allowed: set[int] | None = None, rewrites: int = 2) -> dict:
+                  species: list | None = None, allowed: set[int] | None = None, rewrites: int = 2,
+                  polish: bool = True) -> dict:
     """Write with the AI, then check it twice over: plain code (species, numbers, language, certainty, details
-    like weather or behaviour, format) and a second AI call that quotes any claim the notes don't support.
-    If anything is found, the AI rewrites, told exactly what to fix (up to `rewrites` times), and the
-    version with the fewest problems wins. Returns the result, what's left and what the first draft had."""
+    like weather, places or behaviour, format) and a second AI call that quotes any claim the notes don't
+    support. If anything is found, the AI rewrites, told exactly what to fix (up to `rewrites` times), and the
+    version with the fewest problems wins. Then a light grammar polish, kept only if it adds no problem.
+    Sentences that still carry an invented detail and name no species are removed.
+    Returns the result, what's left (including an "unchecked" note if the checker couldn't run) and what the
+    first draft had."""
     record = record or (lambda kind, i, o: None)
+    state = {"unchecked": False}
 
     def all_problems(result):
         found = check(result)
@@ -126,13 +132,14 @@ def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=
                 claims = verify.drop_false_claims(claims, species, notes, lang, allowed)
             seen = {p["what"].lower() for p in found}
             found += [c for c in claims if c["what"].lower() not in seen]
+            state["unchecked"] = False
         except ai.AIError:
-            pass
+            state["unchecked"] = True  # couldn't double-check: say so instead of pretending it's fine
         return found
 
     first = write(None, None)
     first_problems = all_problems(first)
-    best, best_problems = first, first_problems
+    best, best_problems, best_unchecked = first, first_problems, state["unchecked"]
     current, current_problems = first, first_problems
     for _ in range(rewrites):
         if not current_problems:
@@ -143,9 +150,22 @@ def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=
             break
         current, current_problems = nxt, all_problems(nxt)
         if len(current_problems) <= len(best_problems):
-            best, best_problems = current, current_problems
+            best, best_problems, best_unchecked = current, current_problems, state["unchecked"]
+    if polish and isinstance(best, str):
+        try:  # grammar and agreement only ("calderones gris" -> "calderones grises")
+            polished, i, o = ai.proofread(best, lang)
+            record("proofread", i, o)
+            code_now = check(best)
+            if len(check(polished)) <= len(code_now) and \
+                    verify.mentioned_species(polished) == verify.mentioned_species(best):
+                kept_claims = [p for p in best_problems if p["kind"] == "claim" and p["what"].lower() in polished.lower()]
+                best, best_problems = polished, check(polished) + kept_claims
+        except ai.AIError:
+            pass
     if isinstance(best, str) and best_problems:
         best, best_problems = verify.prune(best, best_problems, species or [])
+    if best_unchecked:
+        best_problems = best_problems + [{"kind": "unchecked", "what": ""}]
     return {"result": best, "problems": best_problems, "first_problems": first_problems}
 
 
@@ -174,6 +194,8 @@ def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day
                                 record=lambda k, i, o: _record(db, org, user, k, i, o),
                                 species=list(day.sightings), allowed=allowed)
             day.narrative = verify.tidy(out["result"])
+            day.ai_flags = json.dumps([p for p in out["problems"] if p["kind"] in ("claim", "unchecked")],
+                                      ensure_ascii=False)
             day.approved = False
             db.commit()
             return {"engine": "ai", "error": None}
@@ -182,6 +204,7 @@ def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day
     else:
         err = None
     day.narrative = freedraft.day_draft(n, day.place, day.notes, list(day.sightings), trip.report_lang)
+    day.ai_flags = ""
     day.approved = False
     db.commit()
     return {"engine": "free", "error": err}

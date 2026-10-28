@@ -77,6 +77,8 @@ RETIRED = {"llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b", 
            "moonshotai/kimi-k2-instruct", "moonshotai/kimi-k2-instruct-0905", "gemma2-9b-it",
            "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"}
 _gone: set[str] = set()
+USED: list[str] = []      # which model answered each call (for the Admin accuracy page)
+SKIPPED: list[str] = []   # models that couldn't answer, and why
 THINK = re.compile(r"<think>.*?</think>", re.S | re.I)
 
 
@@ -173,9 +175,12 @@ def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool, effort: st
     reasons = []
     for model in model_chain():
         try:
-            return _call_model(model, prompt, max_tokens, json_mode, effort)
+            result = _call_model(model, prompt, max_tokens, json_mode, effort)
+            USED.append(model)
+            return result
         except _Next as e:
             reasons.append(e.reason)
+            SKIPPED.append(f"{model}: {e.reason}")
     log.warning("No AI model could answer: %s", reasons or "no models configured")
     if reasons and all(r == "rate_limited" for r in reasons):
         raise AIError("rate_limited")
@@ -311,7 +316,8 @@ WRITING_RULES = """What you may do:
   best sighting (marked [highlight], or what the notes make most of) and give it a sentence of its own with every
   detail the notes give; group the rest naturally.
 - Use the counts from the species list. If the notes and the list disagree (a correction like "3 no 4"), the list is right.
-- Use the species names exactly as written in the species list.
+- Use the species names from the species list, with natural grammar: plural and agreement as the sentence needs
+  ("catorce calderones grises", "varias gaviotas patiamarillas", "two Cory's shearwaters").
 - Read naturally: vary how sentences start, put related species together in one sentence (both vultures, all the
   dolphins) and avoid flat filler like "were also present" or "there were". Write complete sentences, never fragments.
 - For [UNCONFIRMED] species use natural wording such as "probably", "what was probably", "posiblemente",

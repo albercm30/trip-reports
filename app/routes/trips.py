@@ -71,7 +71,8 @@ def trip_page(trip_id: str, request: Request, db: Session = Depends(get_db), use
            "open_day": request.query_params.get("day"), "is_new": request.query_params.get("new") == "1",
            "ai_on": settings.ai_enabled, "REPORT_LANGS": REPORT_LANGS}
     if tab == "days":
-        ctx["day_checks"] = {d.id: verify.day_problems(d, trip, i) for i, d in enumerate(trip.days, 1) if d.narrative}
+        ctx["day_checks"] = {d.id: verify.day_problems(d, trip, i) + verify.stored_flags(d)
+                             for i, d in enumerate(trip.days, 1) if d.narrative}
     if tab == "trip":
         ctx["trip_checks"] = verify.trip_text_problems(trip, len(build_tally(trip))) if (trip.intro or trip.summary) else []
     if tab == "report":
@@ -178,6 +179,8 @@ async def _save_day_form(request: Request, db: Session, user: User, trip: Trip, 
         day.notes = str(f.get("notes", ""))[:20000]
         day.raw_tally = str(f.get("raw_tally", ""))[:10000]
         new_narr = str(f.get("narrative", ""))[:12000]
+        if new_narr.strip() != (day.narrative or "").strip():
+            day.ai_flags = ""  # the guide changed the text: the fact-checker's notes no longer apply
         day.narrative = new_narr
         approved = f.get("approved") == "1"
         if approved and not day.approved:

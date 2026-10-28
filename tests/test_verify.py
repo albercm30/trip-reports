@@ -221,3 +221,47 @@ def test_species_corrections_ranges_and_canonical_names():
     r = verify.check_species_rows(sp.clean_ai_rows([{"name": "Ballena piloto tropical", "sci": "Globicephala macrorhynchus",
                                                       "count": 18, "source": t}], t), t, lang="es")[0][0]
     assert r["count"] == 15 and r["name"] == "Calderón tropical"
+
+
+def test_round6_fixes():
+    # "un par de alcatraces" quoted only as "alcatraces": the pair still counts
+    t = "vimos un cacha lote enorme y luego tres no cuatro delfines moteados una tortuga voba y un par de alcatraces"
+    rows = verify.check_species_rows(sp.clean_ai_rows(
+        [{"name": "Alcatraz", "sci": "Morus bassanus", "count": 2, "source": "alcatraces"}], t), t, lang="es")[0]
+    assert rows[0]["count"] == 2
+    # species names are not details; Spanish "sea" is a verb
+    turtle = [S(name="Loggerhead Sea Turtle", sci="Caretta caretta", count=1, sure=True, heard=False, star=True)]
+    assert verify.check_text("We were thrilled to spot a Loggerhead Sea Turtle, the highlight of the outing.", lang="en",
+                             species=turtle, notes="a loggerhead turtle!") == []
+    boba = [S(name="Tortuga boba", sci="Caretta caretta", count=2, sure=True, heard=False, star=False)]
+    assert verify.check_text("Vimos dos tortugas bobas, algo que hace que cada salida sea única.", lang="es",
+                             species=boba, notes="2 tortugas bobas") == []
+    # positions and an unmarked "highlight"
+    p = verify.check_text("A su alrededor descansaban dos tortugas bobas, lo más destacado del día.", lang="es",
+                          species=boba, notes="2 tortugas bobas")
+    assert {x["kind"] for x in p} == {"detail", "claim"}
+
+
+def test_checker_outage_is_reported_not_hidden(monkeypatch):
+    from app.services.drafting import checked_draft
+
+    def down(*a, **k):
+        raise ai.AIError("rate_limited")
+    monkeypatch.setattr(ai, "unsupported_claims", down)
+    monkeypatch.setattr(ai, "proofread", down)
+    res = checked_draft(lambda prev, probs: "Vimos dos tortugas bobas.", lambda t: [], "2 tortugas bobas", "", "es")
+    assert {"kind": "unchecked", "what": ""} in res["problems"]
+
+
+def test_stored_flags_show_until_the_guide_edits(owner, monkeypatch):
+    monkeypatch.setattr(settings, "llm_api_key", "gsk_test")
+    monkeypatch.setattr(ai, "draft_day", lambda **kw: ("We had a quiet morning with friends.", 1, 1))
+    monkeypatch.setattr(ai, "unsupported_claims", lambda t, n, s: ([{"quote": "with friends", "why": "not in notes"}], 1, 1))
+    monkeypatch.setattr(ai, "proofread", lambda t, l: (t, 1, 1))
+    tid = new_trip(owner)
+    did = add_day(owner, tid)
+    owner.post_form(f"/app/trips/{tid}/days/{did}/draft", {"place": "", "notes": "quiet morning"})
+    page = owner.get(f"/app/trips/{tid}?tab=days&day={did}").text
+    assert "with friends" in page and "Check before approving" in page
+    owner.post_form(f"/app/trips/{tid}/days/{did}", {"place": "", "notes": "quiet morning", "narrative": "A quiet morning."})
+    assert "Check before approving" not in owner.get(f"/app/trips/{tid}?tab=days&day={did}").text

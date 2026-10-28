@@ -139,6 +139,8 @@ class Day(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     raw_tally: Mapped[str] = mapped_column(Text, default="")
     narrative: Mapped[str] = mapped_column(Text, default="")
+    # what the AI fact-checker still flagged in the drafted text (JSON list); cleared when the text is edited
+    ai_flags: Mapped[str] = mapped_column(Text, default="", server_default="")
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -144,6 +144,9 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
             r["count"] = max(nums)
         elif r.get("count") is not None and r["count"] > 1 and not nums and not (free and free.get("count")):
             sentence_nums = _numbers(_sentence_at(text, src_n.split()[0] if src_n else ""))
+            wider = parse_entry(_prepare(" ".join(_raw_before(text, src) + [src])), vocab)
+            if wider and wider.get("count"):
+                sentence_nums.add(wider["count"])
             if r["count"] not in sentence_nums:
                 changes.append(f"{r['name']}: removed count {r['count']}, the guide didn't give one")
                 r["count"] = None
@@ -361,7 +364,8 @@ CONCEPTS = {
     "feeding": "feed* hunt* alimentand* alimentab* alimentar* cazand* cazaba*",
     "swimming": "swim* dive= dived= diving= nadand* nadaba* nadaron* buce* zambull* sumerg*",
     "perched": "perch* posad*",
-    "approach": "approach* acerc*",
+    "approach": "approach* acerc* cross* crossed= cruz* surfac* emerg* display* wheel* spinning= girand* "
+                "acompanaron= escolt*",
     "distance": "distance* distant* nearby= far= lejos= lejan* distancia* cerca=",
     "around us": "swarm* surround* rodea* enjambr*",
     "young": "calf= calves= juvenile* cria= crias= cachorro* juvenil*",
@@ -369,10 +373,30 @@ CONCEPTS = {
 _CONCEPT_PATTERNS = [(name, [(w[:-1], w[-1]) for w in words.split()]) for name, words in CONCEPTS.items()]
 
 
-def _concepts(text: str) -> dict[str, str]:
-    """{concept: first word that expresses it} for a text."""
+def _without_species_names(text: str, vocab: Vocab | None = None) -> str:
+    t = " " + norm(text) + " "
+    for e in mentioned_species(text, vocab):
+        for n in (e.get("en"), e.get("es"), e.get("sci")):
+            for v in sorted(_variants(n or ""), key=len, reverse=True):
+                if v and len(v) > 3:
+                    t = re.sub(r"\b" + re.escape(v) + r"\w*", " ", t)
+    return t
+
+
+POSITION = re.compile(r"\b(a su alrededor|a nuestro alrededor|alrededor del barco|around (?:them|us|it|the boat)|"
+                      r"alongside|overhead|beside us|next to us|junto al barco|junto a nosotros|sobre nuestras cabezas|"
+                      r"por encima|bajo el barco|under the boat)\b", re.I)
+
+
+def _concepts(text: str, lang: str = "") -> dict[str, str]:
+    """{concept: first word that expresses it} for a text (species names are not details)."""
     found = {}
-    for tok in re.findall(r"[a-z]+", strip_accents((text or "").lower())):
+    m = POSITION.search(text or "")
+    if m:
+        found["position"] = m.group(0)
+    for tok in re.findall(r"[a-z]+", strip_accents(_without_species_names(text or "").lower())):
+        if lang == "es" and tok in ("sea", "seas"):
+            continue  # Spanish "sea" is a verb
         for name, pats in _CONCEPT_PATTERNS:
             if name in found:
                 continue
@@ -383,6 +407,8 @@ def _concepts(text: str) -> dict[str, str]:
     return found
 
 
+HIGHLIGHT = re.compile(r"\b(the highlight|highlight of|lo m[aá]s destacado|lo mejor del d[ií]a|el momento estrella|"
+                       r"star of the (?:day|trip))\b", re.I)
 HEARD_WORDS = re.compile(r"\b(heard|hear|hearing|calls?|calling|song|singing|escuch\w*|o[ií]mos|o[ií]do|o[ií]r|"
                          r"cant(o|aba|ando)|llamad\w*)\b", re.I)
 
@@ -446,10 +472,10 @@ def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_
         if n > 1 and n not in allowed and not (1900 <= n <= 2100):
             problems.append({"kind": "number", "what": str(n)})
     # weather, places, sounds and behaviour must come from the notes
-    in_notes_c = _concepts(notes)
+    in_notes_c = _concepts(notes, lang)
     if any(getattr(s_, "heard", False) for s_ in species) or HEARD_WORDS.search(notes or ""):
         in_notes_c["sound"] = "heard"  # a heard-only species can be described by its call
-    for name, word in _concepts(text).items():
+    for name, word in _concepts(text, lang).items():
         if name not in in_notes_c:
             problems.append({"kind": "detail", "what": word})
     # only species heard (not seen) may be described as heard
@@ -462,6 +488,10 @@ def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_
                 continue
             if _mentions(sent, s_, vocab):
                 problems.append({"kind": "heard", "what": s_.name})
+    # calling something the highlight when the guide marked nothing
+    if HIGHLIGHT.search(text) and not any(getattr(s_, "star", False) for s_ in species) and \
+            not re.search(r"!|highlight|destac|lo mejor|best", notes or "", re.I):
+        problems.append({"kind": "claim", "what": HIGHLIGHT.search(text).group(0), "why": "nothing was marked as a highlight"})
     # a text that stops mid-sentence
     if not re.search(r"[.!?…»\"')]\s*$", text):
         problems.append({"kind": "format", "what": "cut"})
@@ -582,4 +612,19 @@ def prune(text: str, problems: list[dict], species: list) -> tuple[str, list[dic
         if keep:
             paras_out.append(" ".join(keep))
     left = [p for p in problems if id(p) not in removed]
-    return "\n\n".join(paras_out), left
+    pruned = "\n\n".join(paras_out)
+    before_n = len(re.findall(r"[.!?](\s|$)", text))
+    after_n = len(re.findall(r"[.!?](\s|$)", pruned))
+    if not pruned.strip() or after_n * 2 < before_n:
+        return text, problems  # too much would go: leave it to the guide, with the warnings
+    return pruned, left
+
+
+def stored_flags(day) -> list[dict]:
+    """Fact-checker notes saved with a drafted day (claims it couldn't fix, or that it couldn't run)."""
+    import json
+    try:
+        items = json.loads(getattr(day, "ai_flags", "") or "[]")
+    except ValueError:
+        return []
+    return [i for i in items if isinstance(i, dict) and i.get("kind") in ("claim", "unchecked")]
