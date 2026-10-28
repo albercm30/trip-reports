@@ -109,33 +109,42 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
 
 
 def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=None, as_text=lambda x: x,
-                  species: list | None = None, allowed: set[int] | None = None) -> dict:
-    """Write with the AI, then check it twice over: plain code (species, numbers, language, certainty,
-    format) and a second AI call that quotes any detail the notes don't support. If either finds
-    something, the AI rewrites once, told exactly what to fix. Returns the result and what's left."""
+                  species: list | None = None, allowed: set[int] | None = None, rewrites: int = 2) -> dict:
+    """Write with the AI, then check it twice over: plain code (species, numbers, language, certainty, details
+    like weather or behaviour, format) and a second AI call that quotes any claim the notes don't support.
+    If anything is found, the AI rewrites, told exactly what to fix (up to `rewrites` times), and the
+    version with the fewest problems wins. Returns the result, what's left and what the first draft had."""
     record = record or (lambda kind, i, o: None)
-    first = write(None, None)
-    problems = check(first)
-    claims = []
-    try:
-        found, i, o = ai.unsupported_claims(as_text(first), notes, species_txt)
-        record("check", i, o)
-        claims = [{"kind": "claim", "what": c["quote"], "why": c["why"]} for c in found]
-        if species is not None:
-            claims = verify.drop_false_claims(claims, species, notes, lang, allowed)
-    except ai.AIError:
-        pass
-    all_first = problems + claims
-    result, left = first, problems
-    if all_first:
+
+    def all_problems(result):
+        found = check(result)
         try:
-            second = write(as_text(first), verify.feedback(all_first, lang))
-            p2 = check(second)
-            if len(p2) <= len(problems):
-                result, left = second, p2
+            claims, i, o = ai.unsupported_claims(as_text(result), notes, species_txt)
+            record("check", i, o)
+            claims = [{"kind": "claim", "what": c["quote"], "why": c["why"]} for c in claims]
+            if species is not None:
+                claims = verify.drop_false_claims(claims, species, notes, lang, allowed)
+            seen = {p["what"].lower() for p in found}
+            found += [c for c in claims if c["what"].lower() not in seen]
         except ai.AIError:
             pass
-    return {"result": result, "problems": left, "first_problems": all_first}
+        return found
+
+    first = write(None, None)
+    first_problems = all_problems(first)
+    best, best_problems = first, first_problems
+    current, current_problems = first, first_problems
+    for _ in range(rewrites):
+        if not current_problems:
+            break
+        try:
+            nxt = write(as_text(current), verify.feedback(current_problems, lang))
+        except ai.AIError:
+            break
+        current, current_problems = nxt, all_problems(nxt)
+        if len(current_problems) <= len(best_problems):
+            best, best_problems = current, current_problems
+    return {"result": best, "problems": best_problems, "first_problems": first_problems}
 
 
 def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day: Day) -> dict:

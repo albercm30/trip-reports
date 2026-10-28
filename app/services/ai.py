@@ -148,8 +148,14 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
             d = r.json()
             text = THINK.sub("", d["choices"][0]["message"].get("content") or "").strip()
             u = d.get("usage") or {}
+            cut = d["choices"][0].get("finish_reason") == "length"
         except (ValueError, KeyError, IndexError) as e:
             raise _Next("bad_output") from e
+        if cut:  # ran out of room (usually after a long think): never return half a sentence
+            if attempt < 2 and body["max_tokens"] < 8000:
+                body["max_tokens"] *= 2
+                continue
+            raise _Next("bad_output")
         if not text:
             raise _Next("bad_output")  # e.g. the model used its whole budget thinking
         return text, int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0)

@@ -267,6 +267,52 @@ def _only_negated(text: str, e: dict) -> bool:
     return bool(hits) and all(NEG_WORDS.search(h) for h in hits)
 
 
+# Details guests would read as facts. Each concept lists words in every language, so Spanish notes can
+# support an English report. "x=" is a whole word, "x*" a word start (accents ignored).
+CONCEPTS = {
+    "water": "water* agua*",
+    "sea": "sea= seas= ocean* mar= oceano*",
+    "shore": "shore* coast* beach* orilla* costa= costas= playa* litoral*",
+    "cliffs": "cliff* acantilad* cortados=",
+    "forest": "forest* woodland* woods= bosque*",
+    "sky": "sky= skies= cielo*",
+    "river": "river* rio= rios=",
+    "hills": "mountain* ridge* canyon* valley* montan* cresta* canon* valle= valles=",
+    "horizon": "horizon* horizonte*",
+    "sun": "sun= sunny= sunlight* sunshine* sunset* sunrise* sol= soleado* amanecer* atardecer* anochecer*",
+    "wind": "wind= windy= breeze* viento* brisa*",
+    "rain": "rain= rainy= raining= cloud* fog* mist= misty= lluvi* nube* nublad* niebla*",
+    "sound": "call= calls= calling= called= song* sound* echo* hoot* llamad* canto= cantos= cantand* sonido* eco= ulul*",
+    "jumping": "jump* leap* breach* splash* saltand* saltaron* saltaba* salto= saltos= brinc*",
+    "playing": "play= playing= playful* frolic* jugand* juguet* jugaban*",
+    "flying": "glid* soar* circl* planeand* planeaba* planearon* sobrevol*",
+    "feeding": "feed* hunt* alimentand* alimentab* alimentar* cazand* cazaba*",
+    "swimming": "swim* dive= dived= diving= nadand* nadaba* nadaron* buce* zambull* sumerg*",
+    "perched": "perch* posad*",
+    "approach": "approach* acerc*",
+    "young": "calf= calves= juvenile* cria= crias= cachorro* juvenil*",
+}
+_CONCEPT_PATTERNS = [(name, [(w[:-1], w[-1]) for w in words.split()]) for name, words in CONCEPTS.items()]
+
+
+def _concepts(text: str) -> dict[str, str]:
+    """{concept: first word that expresses it} for a text."""
+    found = {}
+    for tok in re.findall(r"[a-z]+", strip_accents((text or "").lower())):
+        for name, pats in _CONCEPT_PATTERNS:
+            if name in found:
+                continue
+            for stem, kind in pats:
+                if (kind == "=" and tok == stem) or (kind == "*" and tok.startswith(stem)):
+                    found[name] = tok
+                    break
+    return found
+
+
+HEARD_WORDS = re.compile(r"\b(heard|hear|hearing|calls?|calling|song|singing|escuch\w*|o[ií]mos|o[ií]do|o[ií]r|"
+                         r"cant(o|aba|ando)|llamad\w*)\b", re.I)
+
+
 def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_numbers: set[int] | None = None,
                vocab: Vocab | None = None) -> list[dict]:
     """Problems in a written report. Each is {'kind', 'what'}; kinds: language, species, number, certainty."""
@@ -311,6 +357,28 @@ def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_
     for n in sorted(found_nums):
         if n > 1 and n not in allowed and not (1900 <= n <= 2100):
             problems.append({"kind": "number", "what": str(n)})
+    # weather, places, sounds and behaviour must come from the notes
+    in_notes_c = _concepts(notes)
+    if any(getattr(s_, "heard", False) for s_ in species) or HEARD_WORDS.search(notes or ""):
+        in_notes_c["sound"] = "heard"  # a heard-only species can be described by its call
+    for name, word in _concepts(text).items():
+        if name not in in_notes_c:
+            problems.append({"kind": "detail", "what": word})
+    # only species heard (not seen) may be described as heard
+    for sent in re.split(r"(?<=[.!?;])\s+", text):
+        if not HEARD_WORDS.search(sent):
+            continue
+        for s_ in species:
+            if getattr(s_, "heard", False) or not s_.name:
+                continue
+            keys = {sing_all(norm(s_.name))} | {sing_all(norm(e[k])) for e in vocab.entries
+                                                 if getattr(s_, "sci", "") and norm(e["sci"]) == norm(s_.sci)
+                                                 for k in ("en", "es")}
+            if any(k and re.search(r"\b" + re.escape(k) + r"\b", sing_all(norm(sent))) for k in keys):
+                problems.append({"kind": "heard", "what": s_.name})
+    # a text that stops mid-sentence
+    if not re.search(r"[.!?…»\"')]\s*$", text):
+        problems.append({"kind": "format", "what": "cut"})
     # unconfirmed species must not be stated as certain
     for s in species:
         if getattr(s, "sure", True) or not s.name:
@@ -357,6 +425,10 @@ def feedback(problems: list[dict], lang: str) -> str:
             lines.append(f"You mentioned {p['what']}, which is not on the species list. Remove it.")
         elif p["kind"] == "number":
             lines.append(f"You used the number {p['what']}, which is not in the notes. Remove it or use the real number.")
+        elif p["kind"] == "detail":
+            lines.append(f"\"{p['what']}\" (a weather, place, sound or behaviour detail) is not in the notes. Remove it.")
+        elif p["kind"] == "heard":
+            lines.append(f"{p['what']} was seen, not heard. Don't say it was heard.")
         elif p["kind"] == "format":
             lines.append("Plain prose only: no headings, lists, bold or scientific names, and no checklist at the end.")
         elif p["kind"] == "claim":
@@ -390,7 +462,7 @@ def drop_false_claims(claims: list[dict], species: list, notes: str, lang: str,
         q = c.get("what") or c.get("quote") or ""
         named = [e for e in mentioned_species(q) if norm(e["sci"]) in listed] or \
             [s for s in species if s.name and sing_all(norm(s.name)) in sing_all(norm(q))]
-        if named and len(q.split()) <= 7 and not check_text(q, lang=lang, species=species, notes=notes,
+        if named and len(q.split()) <= 7 and not check_text(q.rstrip(" .") + ".", lang=lang, species=species, notes=notes,
                                                               allowed_numbers=allowed_numbers):
             continue
         out.append(c)

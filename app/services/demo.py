@@ -44,14 +44,14 @@ EX = {
 
 NOTES = {
     "en": {
-        1: "Met group 8am. Cold, clear, frost on the car. Encinarejo dam all morning. Loads of vultures on the ridge, few black vultures. Imperial eagle pair displaying ~11. Picnic by river, kingfisher kept flying past. Afternoon at lynx viewpoints. 18:40 María spotted young lynx on far bank ~300m, 6 min in scopes then into the bushes!! Stags roaring at dusk.",
-        2: "Pre-dawn start, eagle owl calling near the track. No lynx, 5 hrs at viewpoint. Mouflon herd on rocky slope. Azure-winged magpies, few hawfinches. Probable Bonelli's very high, too far. Rain after lunch, hot chocolate in village.",
-        3: "Last morning. Female lynx + big kitten on sunny rock, ~20 min grooming and dozing!! Mongoose crossed track on way down. Golden eagle along ridge, crag martins at cliffs. Lunch in Andújar.",
+        1: "Met group 8am. Cold, clear sky, frost on the car. Encinarejo dam all morning. Loads of vultures on the ridge, few black vultures. Imperial eagle pair displaying ~11. Picnic by river, kingfisher kept flying past. Afternoon at lynx viewpoints. 18:40 María spotted young lynx on far bank ~300m, 6 min in scopes then into the bushes!! Stags roaring at dusk.",
+        2: "Start before sunrise, eagle owl calling near the track. No lynx, 5 hrs at viewpoint. Mouflon herd on rocky slope. Azure-winged magpies, few hawfinches. Probable Bonelli's very high over the ridge, too far. Rain after lunch, hot chocolate in village.",
+        3: "Last morning. Female lynx + big kitten on sunny rock, ~20 min grooming and dozing!! Mongoose crossed track on way down. Golden eagle along ridge, crag martins hunting at the cliffs. Lunch in Andújar.",
     },
     "es": {
-        1: "Quedamos 8h en el hotel. Frío, despejado, escarcha en el coche. Presa del Encinarejo toda la mañana. Muchos buitres en la cresta, algunos negros. Pareja de imperiales en cortejo hacia las 11. Picnic junto al río, el martín pescador pasando todo el rato. Tarde en los miradores del lince. 18:40 María ve un lince joven en la otra orilla a unos 300 m, 6 min con los telescopios y se mete en el matorral!! Ciervos berreando al anochecer.",
-        2: "Salida antes del amanecer, búho real cantando cerca del camino. Sin lince, 5 h en el mirador. Grupo de muflones en la ladera rocosa. Rabilargos, algunos picogordos. Probable perdicera muy alta, demasiado lejos. Lluvia después de comer, chocolate caliente en el pueblo.",
-        3: "Última mañana. Hembra de lince + cachorro grande en una roca al sol, unos 20 min acicalándose y dormitando!! Meloncillo cruza el camino al bajar. Águila real por la cresta, aviones roqueros en los cortados. Comida en Andújar.",
+        1: "Quedamos 8h en el hotel. Frío, cielo despejado, escarcha en el coche. Presa del Encinarejo toda la mañana. Muchos buitres en la cresta, algunos negros. Pareja de imperiales en cortejo hacia las 11. Picnic junto al río, el martín pescador pasando todo el rato. Tarde en los miradores del lince. 18:40 María ve un lince joven en la otra orilla a unos 300 m, 6 min con los telescopios y se mete en el matorral!! Ciervos berreando al anochecer.",
+        2: "Salida antes del amanecer, búho real cantando cerca del camino. Sin lince, 5 h en el mirador. Grupo de muflones en la ladera rocosa. Rabilargos, algunos picogordos. Probable perdicera muy alta sobre la cresta, demasiado lejos. Lluvia después de comer, chocolate caliente en el pueblo.",
+        3: "Última mañana. Hembra de lince + cachorro grande en una roca al sol, unos 20 min acicalándose y dormitando!! Meloncillo cruza el camino al bajar. Águila real por la cresta, aviones roqueros cazando en los cortados. Comida en Andújar.",
     },
 }
 PLACE_NAMES = {

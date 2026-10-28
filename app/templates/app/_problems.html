@@ -3,7 +3,7 @@
   <strong>{{ _('Check before approving') }}</strong>
   <ul>
   {% for p in problems %}
-    <li>{% if p.kind == 'language' %}{{ _('Part of the text is in {what}.', what=_(p.what)) }}{% elif p.kind == 'species' %}{{ _('Mentions {what}, which isn\'t on the species list.', what=p.what) }}{% elif p.kind == 'number' %}{{ _('Uses the number {what}, which isn\'t in your notes.', what=p.what) }}{% else %}{{ _('Describes {what} as certain, but it\'s marked unconfirmed.', what=p.what) }}{% endif %}</li>
+    <li>{% if p.kind == 'language' %}{{ _('Part of the text is in {what}.', what=_(p.what)) }}{% elif p.kind == 'species' %}{{ _('Mentions {what}, which isn\'t on the species list.', what=p.what) }}{% elif p.kind == 'detail' or p.kind == 'claim' %}{{ _('Mentions “{what}”, which isn\'t in your notes.', what=p.what) }}{% elif p.kind == 'heard' %}{{ _('Says {what} was heard, but it was seen.', what=p.what) }}{% elif p.kind == 'format' and p.what == 'cut' %}{{ _('The text seems cut off at the end.') }}{% elif p.kind == 'format' %}{{ _('Plain text only: no lists, bold or scientific names.') }}{% elif p.kind == 'number' %}{{ _('Uses the number {what}, which isn\'t in your notes.', what=p.what) }}{% else %}{{ _('Describes {what} as certain, but it\'s marked unconfirmed.', what=p.what) }}{% endif %}</li>
   {% endfor %}
   </ul>
 </div>

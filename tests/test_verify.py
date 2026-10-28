@@ -50,7 +50,7 @@ def test_text_checks_catch_invented_facts():
            "Después apareció un zifio de Cuvier y un cachalote enorme saltó junto al barco.")
     kinds = {(p["kind"], p["what"]) for p in verify.check_text(bad, lang="es", species=sp_, notes=notes)}
     assert ("number", "2") in kinds and ("species", "Cachalote") in kinds and ("certainty", "Zifio de Cuvier") in kinds
-    good = ("Salimos temprano y enseguida unos veinte calderones tropicales se acercaron al barco. Más tarde vimos lo "
+    good = ("Salimos temprano y enseguida vimos unos veinte calderones tropicales. Más tarde vimos lo "
             "que probablemente era un zifio de Cuvier. Esta vez no hubo suerte con los cachalotes.")
     assert verify.check_text(good, lang="es", species=sp_, notes=notes) == []
     english = "We left early and soon about twenty short-finned pilot whales came close to the boat, which was lovely."
@@ -65,7 +65,7 @@ def test_day_draft_is_rewritten_when_the_check_finds_problems(owner, monkeypatch
         calls.append(kw)
         if not kw.get("problems"):
             return "We saw a sperm whale and twelve dolphins.", 10, 10
-        return "We had a quiet morning at sea.", 10, 10
+        return "We had a quiet morning.", 10, 10
     monkeypatch.setattr(ai, "draft_day", fake_draft_day)
     monkeypatch.setattr(ai, "unsupported_claims", lambda text, notes, sp_: ([], 0, 0))
     tid = new_trip(owner)
@@ -74,7 +74,7 @@ def test_day_draft_is_rewritten_when_the_check_finds_problems(owner, monkeypatch
     assert len(calls) == 2
     assert "Sperm Whale" in calls[1]["problems"] and "12" in calls[1]["problems"]
     page = owner.get(f"/app/trips/{tid}?tab=days&day={did}").text
-    assert "We had a quiet morning at sea." in page and "Check before approving" not in page
+    assert "We had a quiet morning." in page and "Check before approving" not in page
 
 
 def test_accuracy_page_runs_a_case(client, monkeypatch):
@@ -182,3 +182,19 @@ def test_doubt_does_not_leak_to_the_next_species():
              "source": "varias gaviotas patiamarillas"}]
     got = {r["sci"]: r for r in verify.check_species_rows(sp.clean_ai_rows(rows, t), t, lang="es")[0]}
     assert got["Stenella coeruleoalba"]["sure"] is False and got["Larus michahellis"]["sure"] is True
+
+
+def test_invented_details_heard_and_cut_text_are_caught():
+    sp_ = [S(name="Hoopoe", sci="Upupa epops", count=3, sure=True, heard=False),
+           S(name="Zifio", sci="", count=None, sure=False, heard=False),
+           S(name="Eurasian Eagle-Owl", sci="Bubo bubo", count=None, sure=True, heard=True)]
+    p = verify.check_text("We were delighted to spot three hoopoes gliding over the water.", lang="en", species=sp_,
+                          notes="3 hoopoes")
+    assert {x["what"] for x in p if x["kind"] == "detail"} == {"gliding", "water"}
+    p = verify.check_text("Además, escuchamos la posible presencia de un zifio. Luego vimos", lang="es", species=sp_,
+                          notes="posible zifio")
+    assert {"kind": "heard", "what": "Zifio"} in p and {"kind": "format", "what": "cut"} in p
+    assert verify.check_text("The deep call of an Eagle-Owl was a treat.", lang="en", species=sp_,
+                             notes="heard eagle owl") == []
+    # Spanish notes support an English report: "mar de fondo" -> "sea"
+    assert verify.check_text("We went out on a lumpy sea.", lang="en", species=[], notes="mar de fondo") == []
