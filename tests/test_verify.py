@@ -173,3 +173,12 @@ def test_plural_and_short_names_are_recognised_in_text():
         "Sperm Whale", "Cinereous Vulture", "Eurasian Hoopoe"}
     assert verify.mentioned_species("un martín pescador común pasó") and not any(
         e["en"] == "Eurasian Crag Martin" for e in verify.mentioned_species("un martín pescador común pasó"))
+
+
+def test_doubt_does_not_leak_to_the_next_species():
+    t = "calderones grises unos doce, perdón, catorce; creo que un delfín listado; varias gaviotas patiamarillas"
+    rows = [{"name": "Delfín listado", "sci": "Stenella coeruleoalba", "count": 1, "sure": True, "source": "un delfín listado"},
+            {"name": "Gaviota patiamarilla", "sci": "Larus michahellis", "count": None, "sure": True,
+             "source": "varias gaviotas patiamarillas"}]
+    got = {r["sci"]: r for r in verify.check_species_rows(sp.clean_ai_rows(rows, t), t, lang="es")[0]}
+    assert got["Stenella coeruleoalba"]["sure"] is False and got["Larus michahellis"]["sure"] is True

@@ -301,7 +301,10 @@ First draft:
 WRITING_RULES = """What you may do:
 - Combine and reorder the notes into fluent, well-built sentences, grouped in a sensible order
   (how the outing went, the main sightings, anything else worth remembering).
-- Use the counts from the species list, and call something a highlight if the notes or the list say so.
+- Write flowing prose that is pleasant to read, not a list: don't cram every species into one sentence. Open with the
+  best sighting (marked [highlight], or what the notes make most of) and give it a sentence of its own with every
+  detail the notes give; group the rest naturally.
+- Use the counts from the species list. If the notes and the list disagree (a correction like "3 no 4"), the list is right.
 - Add a few short warm phrases that state no fact ("a great outing", "thank you for sharing it with us").
 - Say where things happened only if the notes say so. Never assume sea, shore, cliffs, forest or sky.
 
@@ -315,6 +318,7 @@ What you must NOT add, unless the notes say it:
 Every sentence must be traceable to the notes or the species list. When in doubt, leave it out.
 A species marked [UNCONFIRMED] is "possible" or "probable", never certain. A species marked [heard only] was heard, not seen;
 never say any other species was heard.
+Don't mention the day number ("Day 1", "first day"), and don't say "morning" or "afternoon" unless the notes do.
 Plain text only: no headings, lists, bold, markdown, emoji or scientific names. Don't repeat the species checklist:
 the report already ends with one, so mention only the sightings that matter."""
 
@@ -353,10 +357,14 @@ def draft_day(**kw) -> tuple[str, int, int]:
 def claims_prompt(text: str, notes: str, species_lines: str) -> str:
     return f"""You are a strict fact-checker for a wildlife trip report. Compare the REPORT with the guide's NOTES and SPECIES LIST.
 
-List every detail in the report that the notes and species list do not support: weather, light, sea, sounds or calls,
-animal behaviour, appearance or colours, places, times, numbers, ages (calves...), people's feelings or actions,
-species facts from general knowledge, species not on the list, and anything stated as certain that the notes call
-possible. Warm phrases that state no fact ("a great day at sea", "thank you for joining us") are fine: don't list them.
+List every FACTUAL claim in the report that the notes and species list do not support: weather, light, sea state,
+sounds or calls, animal behaviour, appearance or colours, places, times, numbers, ages (calves...), what specific
+people did, species facts from general knowledge, species not on the list, and anything stated as certain that the
+notes call possible.
+
+Do NOT list (these are fine): warm or polite phrases ("a great outing", "we were delighted", "thank you for joining
+us"), plain verbs like "we saw", "we spotted" or "we enjoyed", calling a [highlight] species a highlight, the day
+number or "first day", and general words like "outing", "trip" or "day".
 Translations and rewording of what the notes say are fine. The SPECIES LIST gives the correct names and counts of
 what the guide wrote (for example "black vultures" in the notes is the Cinereous Vulture on the list, and "3 no 4"
 means 4), so those names and counts are supported. Places (sea, shore, cliffs, water, forest) count as details.

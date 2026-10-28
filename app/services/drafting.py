@@ -41,6 +41,8 @@ def species_lines(day: Day) -> str:
             line += " [heard only]"
         if not s.sure:
             line += " [UNCONFIRMED]"
+        if s.star:
+            line += " [highlight]"
         out.append(line)
     return "\n".join(out)
 

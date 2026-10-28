@@ -39,6 +39,17 @@ def _find(src_n: str, text_n: str) -> int:
     return -1
 
 
+def _raw_before(text: str, src: str) -> list[str]:
+    """Up to 3 words right before the guide's words, stopping at punctuation (, ; . ! ? and new lines)."""
+    t = strip_accents((text or "").lower())
+    s = strip_accents((src or "").lower()).strip()
+    i = t.find(s) if s else -1
+    if i < 0:
+        return []
+    before = re.split(r"[,;.!?\n]", t[:i])[-1]
+    return before.split()[-3:]
+
+
 def _clause_before(text_n: str, idx: int) -> str:
     before = text_n[:idx]
     cut = max(before.rfind(c) for c in ".;\n!?")
@@ -91,7 +102,7 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
         # 3. doubt and highlights right where the guide wrote the name: "posible zifio?", "tortuga boba!"
         mi = _find(src_n, marks) if src_n else -1
         after = marks[mi + len(src_n): mi + len(src_n) + 12].split()[:1] if mi >= 0 else []
-        doubt_before = idx >= 0 and DOUBT.search(_clause_before(text_n, idx)[-30:])
+        doubt_before = idx >= 0 and DOUBT.search(" ".join(_raw_before(text, src)))
         if DOUBT.search(src) or "qmark" in after or doubt_before:
             r["sure"] = False
         if "!" in src or "xmark" in after:

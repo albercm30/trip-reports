@@ -63,7 +63,7 @@ CASES = [
         "expect": [
             {"sci": ["Grampus griseus"], "count": 14},
             {"sci": ["Stenella coeruleoalba"], "count": "any", "sure": False},
-            {"sci": ["Larus michahellis"], "count": None},
+            {"sci": ["Larus michahellis"], "count": None, "sure": True},
         ],
         "absent": [],
     },
@@ -143,6 +143,8 @@ def score(case: dict, rows: list[dict]) -> dict:
             problems.append(f"{exp['sci'][0]}: count {r.get('count')} (expected {exp['count']})")
         if exp.get("sure") is False and r.get("sure"):
             problems.append(f"{exp['sci'][0]}: should be unconfirmed")
+        if exp.get("sure") is True and not r.get("sure"):
+            problems.append(f"{exp['sci'][0]}: should be confirmed")
         if exp.get("star") and not r.get("star"):
             problems.append(f"{exp['sci'][0]}: should be a highlight")
     absent = {_n(x) for x in case.get("absent", [])}

@@ -106,7 +106,7 @@ def accuracy_run(case_id: str, request: Request, user: User = Depends(admin)):
         species = [SimpleNamespace(name=r["name"], sci=r.get("sci", ""), count=r.get("count"), sure=r.get("sure", True),
                                    heard=r.get("heard", False), star=r.get("star", False)) for r in final]
         lines = "\n".join(f"- {s.name}{' (' + s.sci + ')' if s.sci else ''}{' x' + str(s.count) if s.count else ''}"
-                          f"{'' if s.sure else ' [UNCONFIRMED]'}" for s in species)
+                          f"{'' if s.sure else ' [UNCONFIRMED]'}{' [highlight]' if s.star else ''}" for s in species)
         notes_all = (raw + "\n" + notes).strip()
         try:
             from ..services.drafting import checked_draft
