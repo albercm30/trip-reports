@@ -285,3 +285,21 @@ def test_round7_fixes():
     # Spanish writes common names in lower case
     assert verify.tidy("Vimos catorce Calderones Grises y un Zifio De Cuvier.", "es") == \
         "Vimos catorce calderones grises y un zifio de Cuvier."
+
+
+def test_round8_fixes():
+    t = "40 grifons, 6 black vultures, imperial eagle pair!, links x1"
+    rows = verify.check_species_rows(sp.clean_ai_rows([{"name": "Imperial Eagle", "sci": "Aquila adalberti", "count": 2,
+                                                        "source": "imperial eagle"}], t), t, lang="en")[0]
+    eagle = next(r for r in rows if r["sci"] == "Aquila adalberti")
+    assert eagle["count"] == 2 and eagle["star"] is True
+    t = "un zifio, perdón, era un cachalote; 6 delfines moteados"
+    rows = verify.check_species_rows(sp.clean_ai_rows([{"name": "Delfín moteado", "sci": "Stenella frontalis", "count": 6,
+                                                        "sure": False, "star": True, "source": "6 delfines moteados"}], t),
+                                     t, lang="es")[0]
+    assert rows[0]["sure"] is True and rows[0]["star"] is False
+    magpie = [S(name="Iberian Magpie", sci="Cyanopica cooki", count=12, sure=True, heard=False, star=False)]
+    assert {"kind": "detail", "what": "bright"} in verify.check_text(
+        "Twelve Iberian Magpies with their bright azure wings completed the group.", lang="en", species=magpie,
+        notes="azure winged magpies 12")
+    assert verify.tidy("We heard an eurasian eagle-owl.", "en") == "We heard a Eurasian eagle-owl."

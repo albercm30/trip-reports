@@ -39,6 +39,17 @@ def _find(src_n: str, text_n: str) -> int:
     return -1
 
 
+def _raw_after(text: str, src: str) -> list[str]:
+    """Up to 2 words right after the guide's words, stopping at punctuation ("imperial eagle" + "pair")."""
+    t = strip_accents((text or "").lower())
+    s = strip_accents((src or "").lower()).strip()
+    i = t.find(s) if s else -1
+    if i < 0:
+        return []
+    after = re.split(r"[,;.!?\n]", t[i + len(s):])[0]
+    return after.split()[:2]
+
+
 def _raw_before(text: str, src: str) -> list[str]:
     """Up to 3 words right before the guide's words, stopping at punctuation (, ; . ! ? and new lines)."""
     t = strip_accents((text or "").lower())
@@ -144,7 +155,7 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
             r["count"] = max(nums)
         elif r.get("count") is not None and r["count"] > 1 and not nums and not (free and free.get("count")):
             sentence_nums = _numbers(_sentence_at(text, src_n.split()[0] if src_n else ""))
-            wider = parse_entry(_prepare(" ".join(_raw_before(text, src) + [src])), vocab)
+            wider = parse_entry(_prepare(" ".join(_raw_before(text, src) + [src] + _raw_after(text, src))), vocab)
             if wider and wider.get("count"):
                 sentence_nums.add(wider["count"])
             if r["count"] not in sentence_nums:
@@ -154,10 +165,26 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
         mi = _find(src_n, marks) if src_n else -1
         after = marks[mi + len(src_n): mi + len(src_n) + 12].split()[:1] if mi >= 0 else []
         doubt_before = idx >= 0 and DOUBT.search(" ".join(_raw_before(text, src)))
-        if DOUBT.search(src) or "qmark" in after or doubt_before:
+        guide_doubts = bool(DOUBT.search(src) or "qmark" in after or doubt_before)
+        if guide_doubts:
             r["sure"] = False
-        if "!" in src or "xmark" in after:
+        elif not r.get("sure", True) and free and free.get("sure") and free.get("sci") and \
+                norm(free["sci"]) == norm(r.get("sci") or ""):
+            r["sure"] = True  # the model doubted a name the guide wrote clearly and without doubt
+            changes.append(f"{r['name']}: confirmed, the guide showed no doubt")
+        sentence = _sentence_at(text, src_n.split()[0] if src_n else "")
+        clause_after = ""
+        if src:
+            ts, ss = strip_accents(text.lower()), strip_accents(src.lower()).strip()
+            j = ts.find(ss)
+            if j >= 0:
+                clause_after = re.split(r"[,;.?\n]", ts[j + len(ss):])[0]
+        if "!" in src or "xmark" in after or "!" in clause_after:
             r["star"] = True
+        elif r.get("star") and not re.search(r"!|highlight|best|amazing|incredible|destac|lo mejor|incre[ií]ble|"
+                                             r"espectacular|brutal|wow", strip_accents(sentence.lower())):
+            r["star"] = False  # a highlight only when the guide marked one
+            changes.append(f"{r['name']}: not a highlight, the guide didn't mark it")
         # 4. if the guide literally wrote a species' name, that name wins over the model's guess
         if free and free.get("sci") and free.get("_entry") and r.get("sci") and norm(free["sci"]) != norm(r["sci"]) \
                 and (free.get("sure") or (DOUBT.search(src) and _exact_name(free["_entry"], src, vocab))):
@@ -299,6 +326,13 @@ def _names_index(vocab: Vocab) -> dict[str, dict]:
             for k in {norm(n or ""), sing_all(norm(n or ""))}:
                 if len(k) >= 4 and " " in k or len(k) >= 6:  # skip short one-word names that are common words
                     idx.setdefault(k, e)
+    from .vocab import HOMOPHONES
+    for alias, target in HOMOPHONES.items():
+        k = sing_all(norm(alias))
+        if len(k) >= 6 and " " in k and k not in idx:
+            e, sc = vocab.match(target)
+            if e and sc >= 0.92:
+                idx[k] = e
     for tail, entries in vocab.tails.items():  # distinctive short English names: "hoopoe", "spoonbill"
         if len(entries) != 1 or len(tail) < 5 or " " in tail or tail in idx or tail in GENERIC:
             continue
@@ -376,6 +410,9 @@ CONCEPTS = {
     "distance": "distance* distant* nearby= far= lejos= lejan* distancia* cerca=",
     "around us": "swarm* surround* rodea* enjambr*",
     "young": "calf= calves= juvenile* cria= crias= cachorro* juvenil*",
+    "looks": "colour* color* bright* vivid* plumage* plumaje* azure= blue= azul* red= rojo* white= blanc* "
+             "black= negr* grey= gray= gris* yellow= amarill* golden= dorad* silhouette* silueta* sleek= elegant* "
+             "majestic* majestuos*",
 }
 _CONCEPT_PATTERNS = [(name, [(w[:-1], w[-1]) for w in words.split()]) for name, words in CONCEPTS.items()]
 
@@ -483,8 +520,17 @@ def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_
     if any(getattr(s_, "heard", False) for s_ in species) or HEARD_WORDS.search(notes or ""):
         in_notes_c["sound"] = "heard"  # a heard-only species can be described by its call
     for name, word in _concepts(text, lang).items():
-        if name not in in_notes_c:
+        if name not in in_notes_c and name != "looks":
             problems.append({"kind": "detail", "what": word})
+    # looks are checked word by word: "azure" in "azure-winged magpies" doesn't allow "bright azure wings"
+    looks = [(st, k) for st, k in dict(_CONCEPT_PATTERNS)["looks"]]
+    notes_words = set(re.findall(r"[a-z]+", strip_accents(_without_species_names(notes or "").lower())))
+    for tok in re.findall(r"[a-z]+", strip_accents(_without_species_names(text).lower())):
+        for st, k in looks:
+            if (k == "=" and tok == st) or (k == "*" and tok.startswith(st)):
+                if not any((k == "=" and w == st) or (k == "*" and w.startswith(st)) for w in notes_words):
+                    problems.append({"kind": "detail", "what": tok})
+                break
     # only species heard (not seen) may be described as heard
     clauses = re.split(r"[.!?;,:]|\s(?:and|but|while|whereas|y|pero|mientras|aunque)\s", text)
     for sent in clauses:
@@ -510,7 +556,13 @@ def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_
             if _mentions(sent, s, vocab) and not HEDGE.search(sent):
                 problems.append({"kind": "certainty", "what": s.name})
                 break
-    return problems
+    unique, seen = [], set()
+    for p_ in problems:
+        k = (p_["kind"], p_["what"].lower())
+        if k not in seen:
+            seen.add(k)
+            unique.append(p_)
+    return unique
 
 
 def day_problems(day, trip, n: int) -> list[dict]:
@@ -597,6 +649,11 @@ def tidy(text: str, lang: str = "") -> str:
             continue  # a bold heading line on its own
         out.append(ln.replace("**", "").replace("__", ""))
     text = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+    if lang == "en":
+        text = re.sub(r"\b(eurasian|european|iberian|spanish|atlantic|mediterranean|canary|macaronesian|cory's|"
+                      r"bonelli's|cuvier's|blainville's|bryde's|risso's|fraser's|gervais'|audouin's|bulwer's|barolo|"
+                      r"balearic|egyptian)\b", lambda m: m.group(0)[:1].upper() + m.group(0)[1:], text, flags=re.I)
+        text = re.sub(r"\b([Aa])n (Eurasian|European)\b", lambda m: m.group(1) + " " + m.group(2), text)
     return spanish_case(text) if lang == "es" else text
 
 

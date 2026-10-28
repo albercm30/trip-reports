@@ -103,6 +103,7 @@ ROLES = {
     "write": [("groq", GROQ_120), ("cloudflare", CF_120), ("groq", GROQ_20), ("cloudflare", CF_20), ("groq", GROQ_QWEN)],
     "check": [("groq", GROQ_QWEN), ("cloudflare", CF_120), ("groq", GROQ_20), ("groq", GROQ_120)],
     "light": [("groq", GROQ_20), ("groq", GROQ_QWEN), ("cloudflare", CF_20), ("groq", GROQ_120)],
+    "read_alt": [("groq", GROQ_QWEN), ("groq", GROQ_20), ("groq", GROQ_120), ("cloudflare", CF_120)],
 }
 
 
@@ -344,8 +345,14 @@ NOTES:
 
 
 def parse_species(tally: str, notes: str, lang: str, context: str, known: str = "") -> tuple[object, int, int]:
-    text, i, o = complete(species_prompt(tally, notes, lang, context, known), max_tokens=2500, json_mode=True, role="read")
-    return _json(text), i, o
+    prompt = species_prompt(tally, notes, lang, context, known)
+    text, i, o = complete(prompt, max_tokens=2500, json_mode=True, role="read")
+    try:
+        return _json(text), i, o
+    except AIError:
+        # one model sent broken JSON: ask another one once
+        text, i2, o2 = complete(prompt, max_tokens=2500, json_mode=True, role="read_alt")
+        return _json(text), i + i2, o + o2
 
 
 def _fix_block(previous: str, problems: str) -> str:

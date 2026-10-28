@@ -166,6 +166,13 @@ def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=
         best, best_problems = verify.prune(best, best_problems, species or [])
     if best_unchecked:
         best_problems = best_problems + [{"kind": "unchecked", "what": ""}]
+    uniq, seen = [], set()
+    for p in best_problems:
+        k = (p["kind"], p["what"].lower())
+        if k not in seen:
+            seen.add(k)
+            uniq.append(p)
+    best_problems = uniq
     return {"result": best, "problems": best_problems, "first_problems": first_problems}
 
 
