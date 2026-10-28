@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import re
 
-from .species import (DOUBT, Vocab, _prepare, default_vocab, norm, parse_entry, parse_tally, sing_all,
-                      strip_accents)
+from .species import (DOUBT, GENERIC, VAGUE, Vocab, _prepare, default_vocab, norm, parse_entry, parse_tally,
+                      sing_all, strip_accents)
 
 # ------------------------------------------------------------------ species rows
 NEG_BEFORE = re.compile(
@@ -96,14 +96,26 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
         if "!" in src or "xmark" in after:
             r["star"] = True
         # 4. if the guide literally wrote a species' name, that name wins over the model's guess
-        if free and free.get("sure") and free.get("sci") and r.get("sci") and \
-                norm(free["sci"]) != norm(r["sci"]) and not DOUBT.search(src):
+        if free and free.get("sci") and free.get("_entry") and r.get("sci") and norm(free["sci"]) != norm(r["sci"]) \
+                and (free.get("sure") or DOUBT.search(src)) and _exact_name(free["_entry"], src, vocab):
             e = free.get("_entry") or {}
             if e:
                 changes.append(f"{r['name']}: corrected to {e['en']} as written by the guide")
                 r.update(name=e["es"] if lang == "es" else e["en"], sci=e["sci"], group=e["group"] or r.get("group", ""))
+        # 5. the model gave a name but no scientific name: look the name up
+        if not r.get("sci") and r.get("name") and not VAGUE.search(src) and norm(r["name"]) not in GENERIC \
+                and sing_all(norm(r["name"])) not in GENERIC:
+            e, sc = vocab.match(r["name"])
+            if not (e and sc >= 0.92) and free and free.get("_entry") and free.get("sure"):
+                e, sc = free["_entry"], 1.0
+            if e and sc >= 0.92:
+                changes.append(f"{r['name']}: identified as {e['en']}")
+                r.update(name=e["es"] if lang == "es" else e["en"], sci=e["sci"], group=r.get("group") or e["group"])
+                if not DOUBT.search(src) and "qmark" not in after:
+                    r["sure"] = True
         out.append(r)
-    # 5. recall: species the free parser reads with certainty from the tally but the AI left out
+    out = _merge(out)
+    # 6. recall: species the free parser reads with certainty from the tally but the AI left out
     if tally.strip():
         have = {norm(x.get("sci") or "") for x in out if x.get("sci")} | {norm(x["name"]) for x in out}
         for f in parse_tally(tally, vocab, lang):
@@ -119,6 +131,31 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
             out.append(f)
             have.add(norm(f["sci"]))
     return out, changes
+
+
+def _exact_name(entry: dict, src: str, vocab: Vocab) -> bool:
+    """True when the guide's words name this species outright (not just a fuzzy guess)."""
+    s = sing_all(norm(_prepare(src)))
+    names = [sing_all(norm(entry.get(k) or "")) for k in ("en", "es", "sci")]
+    if any(n and n in s for n in names):
+        return True
+    e, sc = vocab.match(re.sub(r"\d+|\bx\b", " ", s))
+    return bool(e and e is entry and sc >= 0.95)
+
+
+def _merge(rows: list[dict]) -> list[dict]:
+    out: dict[str, dict] = {}
+    for r in rows:
+        k = norm(r.get("sci") or "") or norm(r.get("name", ""))
+        if k in out:
+            p = out[k]
+            if r.get("count") and (not p.get("count") or r["count"] > p["count"]):
+                p["count"] = r["count"]
+            p["star"] = p.get("star") or r.get("star")
+            p["sure"] = p.get("sure") and r.get("sure")
+        else:
+            out[k] = r
+    return list(out.values())
 
 
 # ------------------------------------------------------------------ written text
@@ -211,6 +248,13 @@ def check_text(text: str, *, lang: str, species: list, notes: str = "", allowed_
         return []
     vocab = vocab or default_vocab()
     problems: list[dict] = []
+    # plain prose: no markdown, lists or scientific names
+    if re.search(r"\*\*|^#+\s|^\s*[-•*]\s+\S", text, re.M):
+        problems.append({"kind": "format", "what": "markdown"})
+    for s_ in species:
+        if getattr(s_, "sci", "") and len(s_.sci) > 5 and s_.sci.lower() in text.lower():
+            problems.append({"kind": "format", "what": s_.sci})
+            break
     # one language throughout
     for para in [p for p in re.split(r"\n\s*\n", text) if len(p.split()) >= 8]:
         found = detect_lang(para)
@@ -286,6 +330,23 @@ def feedback(problems: list[dict], lang: str) -> str:
             lines.append(f"You mentioned {p['what']}, which is not on the species list. Remove it.")
         elif p["kind"] == "number":
             lines.append(f"You used the number {p['what']}, which is not in the notes. Remove it or use the real number.")
+        elif p["kind"] == "format":
+            lines.append("Plain prose only: no headings, lists, bold or scientific names, and no checklist at the end.")
+        elif p["kind"] == "claim":
+            lines.append(f"\"{p['what']}\" is not in the notes ({p.get('why') or 'unsupported'}). Remove it.")
         elif p["kind"] == "certainty":
             lines.append(f"{p['what']} is UNCONFIRMED: describe it as possible or probable, never as certain.")
     return "\n".join(f"- {x}" for x in lines)
+
+
+def tidy(text: str) -> str:
+    """Last safety net for prose: drop markdown emphasis, headings and a trailing checklist."""
+    lines = (text or "").replace("\r", "").split("\n")
+    out = []
+    for ln in lines:
+        if re.match(r"^\s*(#+\s|[-•*]\s+\S)", ln):
+            continue  # list items and headings: the report already has the checklist
+        if re.fullmatch(r"\s*\*\*[^*]+\*\*:?\s*", ln):
+            continue  # a bold heading line on its own
+        out.append(ln.replace("**", "").replace("__", ""))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()

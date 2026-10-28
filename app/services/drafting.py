@@ -106,28 +106,56 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
     return {"added": added, "engine": engine, "error": error, "dropped": dropped}
 
 
+def checked_draft(write, check, notes: str, species_txt: str, lang: str, record=None, as_text=lambda x: x) -> dict:
+    """Write with the AI, then check it twice over: plain code (species, numbers, language, certainty,
+    format) and a second AI call that quotes any detail the notes don't support. If either finds
+    something, the AI rewrites once, told exactly what to fix. Returns the result and what's left."""
+    record = record or (lambda kind, i, o: None)
+    first = write(None, None)
+    problems = check(first)
+    claims = []
+    try:
+        found, i, o = ai.unsupported_claims(as_text(first), notes, species_txt)
+        record("check", i, o)
+        claims = [{"kind": "claim", "what": c["quote"], "why": c["why"]} for c in found]
+    except ai.AIError:
+        pass
+    all_first = problems + claims
+    result, left = first, problems
+    if all_first:
+        try:
+            second = write(as_text(first), verify.feedback(all_first, lang))
+            p2 = check(second)
+            if len(p2) <= len(problems):
+                result, left = second, p2
+        except ai.AIError:
+            pass
+    return {"result": result, "problems": left, "first_problems": all_first}
+
+
 def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day: Day) -> dict:
     n = trip.days.index(day) + 1
     if _use_ai(db, org):
         try:
+            lines = species_lines(day)
             kw = dict(n=n, date_s=day.date.isoformat() if day.date else "", place=day.place, notes=day.notes,
-                      species_lines=species_lines(day), lang=trip.report_lang, tone=org.tone,
-                      context=_context(trip, org))
-            text, i, o = ai.draft_day(**kw)
-            _record(db, org, user, "day", i, o)
-            text = text.strip()
-            day.narrative = text
-            problems = verify.day_problems(day, trip, n)
-            if problems:  # one corrective rewrite, told exactly what was wrong
+                      species_lines=lines, lang=trip.report_lang, tone=org.tone, context=_context(trip, org))
+
+            def write(previous, problems):
+                text, i, o = ai.draft_day(**kw, previous=previous or "", problems=problems or "")
+                _record(db, org, user, "day", i, o)
+                return text.strip()
+
+            def check(text):
+                old, day.narrative = day.narrative, text
                 try:
-                    text2, i, o = ai.draft_day(**kw, previous=text, problems=verify.feedback(problems, trip.report_lang))
-                    _record(db, org, user, "day", i, o)
-                    day.narrative = text2.strip()
-                    problems2 = verify.day_problems(day, trip, n)
-                    if len(problems2) > len(problems):
-                        day.narrative = text
-                except ai.AIError:
-                    day.narrative = text
+                    return verify.day_problems(day, trip, n)
+                finally:
+                    day.narrative = old
+
+            out = checked_draft(write, check, day.notes or "", lines, trip.report_lang,
+                                record=lambda k, i, o: _record(db, org, user, k, i, o))
+            day.narrative = verify.tidy(out["result"])
             day.approved = False
             db.commit()
             return {"engine": "ai", "error": None}
@@ -150,21 +178,26 @@ def draft_intro(db: Session, org: Organization, user: User | None, trip: Trip) -
         try:
             kw = dict(days_text=days_text, n_days=len(trip.days), n_species=len(rows), guests=trip.guests,
                       lang=trip.report_lang, tone=org.tone, context=_context(trip, org))
-            d, i, o = ai.draft_intro(**kw)
-            _record(db, org, user, "intro", i, o)
-            trip.intro, trip.summary = d["intro"].strip(), str(d.get("summary", "")).strip()
-            problems = verify.trip_text_problems(trip, len(rows))
-            if problems:
-                first = (trip.intro, trip.summary)
+
+            def write(previous, problems):
+                d, i, o = ai.draft_intro(**kw, previous=previous or "", problems=problems or "")
+                _record(db, org, user, "intro", i, o)
+                return (d["intro"].strip(), str(d.get("summary", "")).strip())
+
+            def check(pair):
+                old = (trip.intro, trip.summary)
+                trip.intro, trip.summary = pair
                 try:
-                    d2, i, o = ai.draft_intro(**kw, previous=f"{first[0]}\n\n{first[1]}",
-                                              problems=verify.feedback(problems, trip.report_lang))
-                    _record(db, org, user, "intro", i, o)
-                    trip.intro, trip.summary = d2["intro"].strip(), str(d2.get("summary", "")).strip()
-                    if len(verify.trip_text_problems(trip, len(rows))) > len(problems):
-                        trip.intro, trip.summary = first
-                except ai.AIError:
-                    trip.intro, trip.summary = first
+                    return verify.trip_text_problems(trip, len(rows))
+                finally:
+                    trip.intro, trip.summary = old
+
+            all_notes = "\n\n".join(d.notes or "" for d in trip.days)
+            sp_txt = "\n".join(species_lines(d) for d in trip.days)
+            out = checked_draft(write, check, all_notes + "\n\n" + days_text, sp_txt, trip.report_lang,
+                                record=lambda k, i, o: _record(db, org, user, k, i, o),
+                                as_text=lambda pair: f"{pair[0]}\n\n{pair[1]}")
+            trip.intro, trip.summary = (verify.tidy(x) for x in out["result"])
             db.commit()
             return {"engine": "ai", "error": None}
         except ai.AIError as e:

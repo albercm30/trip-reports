@@ -21,7 +21,7 @@ log = logging.getLogger("tripreports.ai")
 
 LANG_NAMES = {"en": "English", "es": "Spanish", "de": "German", "fr": "French"}
 TONES = {
-    "warm": "warm, personal and vivid, like a friendly guide writing to guests they enjoyed spending time with",
+    "warm": "warm and personal, like a friendly guide writing to guests they enjoyed spending time with; plain words, no purple prose",
     "expert": "knowledgeable and precise, like an experienced naturalist; calm, factual, with small ecological details only where the notes support them",
     "lively": "upbeat and lively with light humour, but never silly or exaggerated",
 }
@@ -98,16 +98,16 @@ class _Next(Exception):
         self.reason = reason
 
 
-def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool) -> tuple[str, int, int]:
+def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effort: str = "low") -> tuple[str, int, int]:
     reasoning = "gpt-oss" in model or "qwen3" in model
     body = {"model": model, "temperature": 0.2 if not json_mode else 0,
             # reasoning models spend part of the budget thinking before they answer
-            "max_tokens": max_tokens + (800 if reasoning else 0),
+            "max_tokens": max_tokens + ((1500 if effort == "medium" else 800) if reasoning else 0),
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     if "gpt-oss" in model:
-        body.update(reasoning_effort="low", include_reasoning=False)
+        body.update(reasoning_effort=effort, include_reasoning=False)
     headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
     url = f"{settings.llm_base_url}/chat/completions"
     for attempt in range(3):
@@ -163,11 +163,11 @@ def _retry_after(r: httpx.Response) -> float:
         return 30.0
 
 
-def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool) -> tuple[str, int, int]:
+def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool, effort: str = "low") -> tuple[str, int, int]:
     reasons = []
     for model in model_chain():
         try:
-            return _call_model(model, prompt, max_tokens, json_mode)
+            return _call_model(model, prompt, max_tokens, json_mode, effort)
         except _Next as e:
             reasons.append(e.reason)
     log.warning("No AI model could answer: %s", reasons or "no models configured")
@@ -201,12 +201,13 @@ def check() -> list[dict]:
     return out
 
 
-def complete(prompt: str, *, fast: bool = False, max_tokens: int = 1200, json_mode: bool = False) -> tuple[str, int, int]:
+def complete(prompt: str, *, fast: bool = False, max_tokens: int = 1200, json_mode: bool = False,
+             effort: str = "low") -> tuple[str, int, int]:
     """Returns (text, input_tokens, output_tokens). Raises AIError."""
     if settings.ai_provider == "anthropic":
         text, i, o = _anthropic(prompt, fast, max_tokens)
     elif settings.ai_provider == "openai":
-        text, i, o = _openai_compatible(prompt, max_tokens, json_mode)
+        text, i, o = _openai_compatible(prompt, max_tokens, json_mode, effort)
     else:
         raise AIError("unavailable")
     if not text:
@@ -297,30 +298,40 @@ First draft:
 """
 
 
+WRITING_RULES = """What you may do:
+- Combine and reorder the notes into fluent, well-built sentences, grouped in a sensible order
+  (how the outing went, the main sightings, anything else worth remembering).
+- Use the counts from the species list, and call something a highlight if the notes or the list say so.
+- Add a few short warm phrases that state no fact ("a great morning at sea", "thank you for sharing it with us").
+
+What you must NOT add, unless the notes say it:
+- weather, sky, light, sun, wind, sea state or colours;
+- sounds, calls, songs, smells;
+- behaviour (jumping, playing, feeding, resting, approaching the boat...), appearance, colours or sizes of animals;
+- places (beach, cliffs, forest, harbour...), times, distances, ages (calves, juveniles), numbers;
+- what guests felt or did;
+- any species not on the list, and facts about a species from your own knowledge.
+Every sentence must be traceable to the notes or the species list. When in doubt, leave it out.
+A species marked [UNCONFIRMED] is "possible" or "probable", never certain. A species marked [heard only] was heard, not seen;
+never say any other species was heard.
+Plain text only: no headings, lists, bold, markdown, emoji or scientific names. Don't repeat the species checklist:
+the report already ends with one, so mention only the sightings that matter."""
+
+
 def day_prompt(n: int, date_s: str, place: str, notes: str, species_lines: str, lang: str, tone: str, context: str,
                previous: str = "", problems: str = "") -> str:
-    return f"""Write the Day {n} section of a wildlife trip report that a tour operator will send to its guests.
+    ln = LANG_NAMES.get(lang, 'English')
+    return f"""Write the Day {n} section of a wildlife trip report that a tour operator sends to its guests.
 
-Style: {TONES.get(tone, TONES['warm'])}.
-Language: write EVERY sentence in {LANG_NAMES.get(lang, 'English')}. If the guide's notes are in another language,
-translate them; never mix languages. Species names too: use their {LANG_NAMES.get(lang, 'English')} common names.
-Length: 120 to 220 words in 1 to 3 short paragraphs. Plain text only: no heading, no bullet points, no emoji, no markdown.
-Voice: first person plural ("we").
+Language: every sentence in {ln}, with {ln} common names; translate the notes if they are in another language
+and never mix languages.
+Style: {TONES.get(tone, TONES['warm'])}. First person plural ("we").
+Length: as long as the notes justify, from 2 sentences for thin notes up to about 180 words. Never pad.
+It is a summary for guests, not a transcript: don't copy the guide's sentences. Leave out notes meant for the team
+(fuel, bookings, reminders, complaints). The notes may contain spelling and dictation mistakes: understand what the
+guide meant, but never change a fact, number or time.
 
-This is a summary for guests, not a transcript. Do not copy the guide's sentences or list their notes in order:
-work out what happened and retell it as a well-organised, pleasant story (for example: how the day or outing went,
-the main sightings and the best moments, then anything else worth remembering). Leave out logistics and notes
-meant for the team, such as fuel, bookings, reminders or complaints.
-
-Hard rules. Breaking any of these is a serious error:
-1. Use only facts found in the guide's notes and the species list. Do not invent sightings, behaviour, weather, times, places, people, names or numbers.
-   No invented atmosphere either: no sky, light, sea colour, feelings or "hearts full of wonder" unless the notes say so.
-   Write naturally and warmly, but plainly; avoid clichés and over-the-top adjectives.
-2. Mention only species on the list. A species marked [UNCONFIRMED] must be described as possible or probable, never as certain. A species marked [heard only] was heard, not seen.
-3. Don't try to mention every species; the report ends with a full checklist. Focus on what the notes treat as the highlights.
-4. If the notes are thin, write a shorter section rather than padding it.
-5. The notes may contain spelling mistakes and dictation errors. Understand what the guide meant and write it
-   correctly, with species names spelled properly, but never change a fact, number or time.
+{WRITING_RULES}
 
 {context}
 Day {n}{', ' + date_s if date_s else ''}{', ' + place if place else ''}
@@ -335,7 +346,47 @@ Species list for this day:
 
 
 def draft_day(**kw) -> tuple[str, int, int]:
-    return complete(day_prompt(**kw), max_tokens=900)
+    return complete(day_prompt(**kw), max_tokens=700, effort="medium")
+
+
+def claims_prompt(text: str, notes: str, species_lines: str) -> str:
+    return f"""You are a strict fact-checker for a wildlife trip report. Compare the REPORT with the guide's NOTES and SPECIES LIST.
+
+List every detail in the report that the notes and species list do not support: weather, light, sea, sounds or calls,
+animal behaviour, appearance or colours, places, times, numbers, ages (calves...), people's feelings or actions,
+species facts from general knowledge, species not on the list, and anything stated as certain that the notes call
+possible. Warm phrases that state no fact ("a great day at sea", "thank you for joining us") are fine: don't list them.
+Translations and rewording of what the notes say are fine.
+
+"quote" must be copied EXACTLY from the report (a short phrase, not a whole paragraph).
+Reply with only JSON: {{"unsupported": [{{"quote": "...", "why": "..."}}]}}  (an empty list if everything is supported)
+
+NOTES:
+\"\"\"
+{notes[:8000] or "(none)"}
+\"\"\"
+
+SPECIES LIST:
+{species_lines or "(none)"}
+
+REPORT:
+\"\"\"
+{text[:6000]}
+\"\"\""""
+
+
+def unsupported_claims(text: str, notes: str, species_lines: str) -> tuple[list[dict], int, int]:
+    """Details in a draft that the notes don't support, as quoted by a second, checking model call.
+    Quotes that aren't really in the draft are ignored, so the checker can't invent problems either."""
+    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=700, json_mode=True)
+    d = _json(out)
+    items = d.get("unsupported", []) if isinstance(d, dict) else d if isinstance(d, list) else []
+    clean, low = [], " ".join(text.lower().split())
+    for it in items[:20]:
+        q = str(it.get("quote", "") if isinstance(it, dict) else it).strip().strip('"“”«»')
+        if len(q) >= 4 and " ".join(q.lower().split()) in low:
+            clean.append({"quote": q[:200], "why": str(it.get("why", "") if isinstance(it, dict) else "")[:200]})
+    return clean, i, o
 
 
 def intro_prompt(days_text: str, n_days: int, n_species: int, guests, lang: str, tone: str, context: str,
@@ -344,9 +395,11 @@ def intro_prompt(days_text: str, n_days: int, n_species: int, guests, lang: str,
 
 Style: {TONES.get(tone, TONES['warm'])}. Language: every sentence in {LANG_NAMES.get(lang, 'English')}, translating if
 the day reports are in another language; never mix languages. First person plural ("we"). Plain text, no emoji, no markdown.
-- "intro": 50 to 100 words. Welcome the reader back to the trip: where it was, how many days, the feel of it. Don't list species.
-- "summary": 50 to 110 words. Look back on the highlights, mention that {n_species} species were recorded, and thank the guests. No sign-off or names.
+- "intro": 30 to 90 words. Welcome the reader back to the trip: where it was and how many days. Don't list species.
+- "summary": 40 to 100 words. Look back on the highlights, mention that {n_species} species were recorded, and thank the guests. No sign-off or names.
 Use only facts from the day reports below. Species the day reports call possible or probable must stay that way.
+
+{WRITING_RULES}
 
 {context}
 Guests: {guests or '(not given)'}
@@ -361,7 +414,7 @@ Reply with only JSON: {{"intro":"...","summary":"..."}}{_fix_block(previous, pro
 
 
 def draft_intro(**kw) -> tuple[dict, int, int]:
-    text, i, o = complete(intro_prompt(**kw), max_tokens=900, json_mode=True)
+    text, i, o = complete(intro_prompt(**kw), max_tokens=700, json_mode=True, effort="medium")
     d = _json(text)
     if not isinstance(d, dict) or not isinstance(d.get("intro"), str):
         raise AIError("bad_output")

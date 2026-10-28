@@ -109,16 +109,19 @@ def accuracy_run(case_id: str, request: Request, user: User = Depends(admin)):
                           f"{'' if s.sure else ' [UNCONFIRMED]'}" for s in species)
         notes_all = (raw + "\n" + notes).strip()
         try:
+            from ..services.drafting import checked_draft
             kw = dict(n=1, date_s="", place="", notes=notes_all, species_lines=lines, lang=lang, tone="warm", context="")
-            text, _, _ = ai.draft_day(**kw)
-            probs = verify.check_text(text, lang=lang, species=species, notes=notes_all, allowed_numbers={1})
-            first = len(probs)
-            if probs:
-                text2, _, _ = ai.draft_day(**kw, previous=text, problems=verify.feedback(probs, lang))
-                probs2 = verify.check_text(text2, lang=lang, species=species, notes=notes_all, allowed_numbers={1})
-                if len(probs2) <= len(probs):
-                    text, probs = text2, probs2
-            out["draft"] = {"text": text, "problems": probs, "first_try_problems": first}
+
+            def write(previous, problems):
+                return ai.draft_day(**kw, previous=previous or "", problems=problems or "")[0].strip()
+
+            def check(text):
+                return verify.check_text(text, lang=lang, species=species, notes=notes_all, allowed_numbers={1})
+
+            res = checked_draft(write, check, notes_all, lines, lang)
+            out["draft"] = {"text": verify.tidy(res["result"]), "problems": res["problems"],
+                            "first_try_problems": len(res["first_problems"]),
+                            "fixed": [p["what"] for p in res["first_problems"]]}
         except ai.AIError as e:
             out["draft_error"] = e.code
     out["seconds"] = round(time.time() - t0, 1)

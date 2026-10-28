@@ -67,6 +67,7 @@ def test_day_draft_is_rewritten_when_the_check_finds_problems(owner, monkeypatch
             return "We saw a sperm whale and twelve dolphins.", 10, 10
         return "We had a quiet morning at sea.", 10, 10
     monkeypatch.setattr(ai, "draft_day", fake_draft_day)
+    monkeypatch.setattr(ai, "unsupported_claims", lambda text, notes, sp_: ([], 0, 0))
     tid = new_trip(owner)
     did = add_day(owner, tid)
     owner.post_form(f"/app/trips/{tid}/days/{did}/draft", {"place": "", "notes": "quiet morning, nothing much"})
@@ -101,3 +102,41 @@ def test_problems_show_on_the_day_and_in_report_checks(owner):
                                                      "narrative": "We had a quiet morning and saw a sperm whale."})
     assert "Mentions Sperm Whale" in owner.get(f"/app/trips/{tid}?tab=days&day={did}").text
     assert "thing(s) in the text to check" in owner.get(f"/app/trips/{tid}?tab=report").text
+
+
+def test_claim_checker_feeds_the_rewrite(monkeypatch):
+    from app.services.drafting import checked_draft
+    calls = []
+
+    def write(previous, problems):
+        calls.append(problems)
+        return "Salimos con mar en calma y vimos calderones." if previous else "Bajo un sol radiante vimos calderones saltando."
+    monkeypatch.setattr(ai, "unsupported_claims", lambda text, notes, s: (
+        [{"quote": "Bajo un sol radiante", "why": "weather not in notes"}, {"quote": "saltando", "why": "behaviour"}]
+        if "sol" in text else [], 0, 0))
+    res = checked_draft(write, lambda t: [], "mar en calma, calderones", "- Calderón tropical", "es")
+    assert res["result"] == "Salimos con mar en calma y vimos calderones."
+    assert "Bajo un sol radiante" in calls[1] and "saltando" in calls[1]
+
+
+def test_claim_quotes_must_really_be_in_the_text(monkeypatch):
+    monkeypatch.setattr(ai, "complete", lambda *a, **k: (
+        '{"unsupported": [{"quote": "saltando", "why": "x"}, {"quote": "una ballena azul", "why": "made up"}]}', 0, 0))
+    found, _, _ = ai.unsupported_claims("Vimos calderones saltando.", "calderones", "")
+    assert [f["quote"] for f in found] == ["saltando"]
+
+
+def test_tidy_removes_markdown_and_checklists():
+    t = "Un gran día.\n\n**Lista de avistamientos del Día 1**\n- Calderón gris – 14\n- Delfín común"
+    assert verify.tidy(t) == "Un gran día."
+
+
+def test_names_without_scientific_name_are_looked_up():
+    text = "creo que un delfín listado; varias gaviotas patiamarillas; dos rorcuales tropicales"
+    rows = [{"name": "Delfín común", "sci": "Tursiops truncatus", "count": 1, "sure": False, "source": "creo que un delfín listado"},
+            {"name": "gaviotas patiamarillas", "sci": "", "count": None, "sure": False, "source": "varias gaviotas patiamarillas"},
+            {"name": "Rorcual tropical", "sci": "", "count": 2, "sure": True, "source": "dos rorcuales tropicales"}]
+    rows, _ = verify.check_species_rows(sp.clean_ai_rows(rows, text), text, lang="es", tally=text)
+    got = {r["sci"]: r for r in rows}
+    assert set(got) == {"Stenella coeruleoalba", "Larus michahellis", "Balaenoptera edeni"}
+    assert got["Stenella coeruleoalba"]["sure"] is False and got["Larus michahellis"]["sure"] is True
