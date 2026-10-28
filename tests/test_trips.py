@@ -279,7 +279,7 @@ def test_spanish_ui_and_report(client):
     client.cookies.set("lang", "es")
     signup(client)
     page = client.get("/app").text
-    assert "Añadir un viaje de ejemplo" in page
+    assert "Ejemplo: avistamiento de cetáceos (Canarias)" in page
     client.post_form("/app/demo/example")
     with SessionLocal() as db:
         tid = db.query(Trip).one().id
@@ -358,3 +358,22 @@ def test_trip_report_language_overrides_company(owner):
     owner.post_form(f"/app/trips/{tid}", {"title": "Calderones", "lang": ""})
     with SessionLocal() as db:
         assert db.get(Trip, tid).report_lang == "en"
+
+
+def test_whale_watching_example_and_season(owner):
+    from app.db import SessionLocal
+    from app.models import Trip
+    from app.services import verify
+    from app.services.reportdata import build_tally
+    owner.post_form("/app/demo/example", {"kind": "marine"})
+    r = owner.post_form("/app/demo/season", {"kind": "marine"})
+    assert r.status_code == 303
+    with SessionLocal() as db:
+        trips = db.query(Trip).all()
+        ex = [t for t in trips if t.intro]
+        assert len(ex) == 1 and "La Palma" in ex[0].location and len(trips) == 91
+        t = ex[0]
+        assert verify.day_problems(t.days[0], t, 1) == [] and verify.trip_text_problems(t, len(build_tally(t))) == []
+    page = owner.get("/app/insights").text
+    assert "Short-finned Pilot Whale" in page or "Calderón tropical" in page
+    assert "Pilot" in owner.get("/example?kind=marine").text

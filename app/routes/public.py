@@ -13,6 +13,7 @@ from ..deps import optional_user
 from ..security import user_from_request
 from ..i18n import UI_LANGS
 from ..services.demo import build_example_trip
+from ..services.demo_marine import build_marine_trip
 from ..services.reportdata import build_report
 from ..web import render
 
@@ -29,12 +30,20 @@ def example(request: Request, user=Depends(optional_user)):
     from ..i18n import detect_lang
     lang = request.query_params.get("rl") or detect_lang(request, user)
     lang = lang if lang in ("en", "es") else "en"
-    trip = build_example_trip(lang, "Alberto")
-    org = SimpleNamespace(name="Sierra Morena Wildlife Tours" if lang == "en" else "Sierra Morena Naturaleza",
-                          accent="#2E6A5C", report_lang=lang, website="www.example.com",
-                          signoff="Thank you for travelling with us.\nAlberto and the team" if lang == "en"
-                          else "Gracias por viajar con nosotros.\nAlberto y el equipo",
-                          show_credit=True, logo_key=None)
+    if request.query_params.get("kind") == "marine":
+        trip = build_marine_trip(lang)
+        org = SimpleNamespace(name="Cetáceos de La Palma (ejemplo)" if lang == "es" else "La Palma Whale Watching (example)",
+                              accent="#1f5f7a", report_lang=lang, website="www.example.com",
+                              signoff="Gracias por navegar con nosotros.\nLaura, Dani y el equipo" if lang == "es"
+                              else "Thank you for sailing with us.\nLaura, Dani and the team",
+                              show_credit=True, logo_key=None)
+    else:
+        trip = build_example_trip(lang, "Alberto")
+        org = SimpleNamespace(name="Sierra Morena Wildlife Tours" if lang == "en" else "Sierra Morena Naturaleza",
+                              accent="#2E6A5C", report_lang=lang, website="www.example.com",
+                              signoff="Thank you for travelling with us.\nAlberto and the team" if lang == "en"
+                              else "Gracias por viajar con nosotros.\nAlberto y el equipo",
+                              show_credit=True, logo_key=None)
     return render(request, "report/page.html", {"trip": trip, "rorg": org, "R": build_report(trip, org, settings.name_for(org.report_lang)),
                                                  "example": True, "media_qs": ""}, user=user)
 

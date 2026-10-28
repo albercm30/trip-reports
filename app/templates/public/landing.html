@@ -7,7 +7,8 @@
     <p>{{ _('Your guides dictate a few lines and a rough tally in the field. Your guests get a polished, branded report with every species checked, and you get a record of your season that sells your next trip.') }}</p>
     <div class="row">
       <a class="btn primary" href="/signup">{{ _('Start your {n}-day free trial', n=settings.trial_days) }}</a>
-      <a class="btn" href="/example">{{ _('See an example report') }}</a>
+      <a class="btn" href="/example?kind=marine">{{ _('Example: whale watching') }}</a>
+      <a class="btn" href="/example">{{ _('Example: lynx & birding') }}</a>
     </div>
     <p class="hint" style="margin-top:12px">{{ _('No card needed for the trial.') }}</p>
   </section>

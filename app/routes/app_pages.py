@@ -10,7 +10,7 @@ from ..db import get_db
 from ..deps import current_user, writer
 from ..i18n import translate
 from ..models import Day, Trip, User
-from ..services import demo, drafting
+from ..services import demo, demo_marine, drafting
 from ..services import insights as ins
 from ..services.reportdata import build_tally
 from ..web import redirect, render
@@ -34,21 +34,31 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
                       "shared": bool(t.share_token)})
     return render(request, "app/dashboard.html", {
         "cards": cards, "has_demo": any(t.is_demo for t in trips),
-        "has_example": any(t.is_demo and len(t.days) == 3 and t.intro for t in trips),
-        "has_season": sum(1 for t in trips if t.is_demo and not t.intro) > 1,
+        "has_example": any(t.is_demo and t.intro and "La Palma" not in t.location for t in trips),
+        "has_season": sum(1 for t in trips if t.is_demo and not t.intro and "La Palma" not in t.location) > 1,
+        "has_marine_example": any(t.is_demo and t.intro and "La Palma" in t.location for t in trips),
+        "has_marine_season": sum(1 for t in trips if t.is_demo and not t.intro and "La Palma" in t.location) > 1,
         "welcome": request.query_params.get("welcome") == "1", "nav": "trips",
     }, user=user)
 
 
 @router.post("/demo/example")
-def demo_example(request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+async def demo_example(request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    kind = (await request.form()).get("kind", "")
+    if kind == "marine":
+        t = demo_marine.add_marine_example(db, user.org, user.id, user.name)
+        return redirect(f"/app/trips/{t.id}?tab=report", "Here's a finished example. Open the Days tab to see the rough notes it came from.")
     t = demo.add_example_trip(db, user.org, user.id, user.name)
     return redirect(f"/app/trips/{t.id}?tab=report", "Here's a finished example. Open the Days tab to see the rough notes it came from.")
 
 
 @router.post("/demo/season")
-def demo_season(request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
-    n = demo.add_demo_season(db, user.org, user.id, user.name)
+async def demo_season(request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    kind = (await request.form()).get("kind", "")
+    if kind == "marine":
+        n = demo_marine.add_marine_season(db, user.org, user.id, user.name)
+    else:
+        n = demo.add_demo_season(db, user.org, user.id, user.name)
     return redirect("/app/insights", translate(user.ui_lang, "Added {n} demo trips. You can remove them any time from Trips.", n=n))
 
 

@@ -12,7 +12,8 @@
   </ol>
   {% if can_edit %}
   <div class="row">
-    <form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ _('Add an example trip') }}</button></form>
+    <form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="marine"><button class="btn primary">{{ _('Example: whale watching (Canary Islands)') }}</button></form>
+    <form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Example: lynx & birding (Andalusia)') }}</button></form>
     <form method="post" action="/app/trips"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Start your own trip') }}</button></form>
     <a class="btn ghost" href="/app/settings">{{ _('Company settings') }}</a>
   </div>
@@ -35,8 +36,10 @@
     {% endfor %}
   </div>
   <div class="row" style="margin-top:16px">
-    {% if can_edit and not has_example %}<form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ _('Add an example trip') }}</button></form>{% endif %}
-    {% if can_edit and not has_season %}<form method="post" action="/app/demo/season"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ _('Load a demo season') }}</button></form>{% endif %}
+    {% if can_edit and not has_marine_example %}<form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="marine"><button class="btn small">{{ _('Example: whale watching') }}</button></form>{% endif %}
+    {% if can_edit and not has_marine_season %}<form method="post" action="/app/demo/season"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="marine"><button class="btn small">{{ _('Demo season: whale watching') }}</button></form>{% endif %}
+    {% if can_edit and not has_example %}<form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ _('Example: lynx & birding') }}</button></form>{% endif %}
+    {% if can_edit and not has_season %}<form method="post" action="/app/demo/season"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ _('Demo season: lynx & birding') }}</button></form>{% endif %}
     {% if has_demo %}<form method="post" action="/app/demo/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost" data-confirm="{{ _('Remove all example and demo trips? Your own trips stay.') }}">{{ _('Remove demo trips') }}</button></form>{% endif %}
   </div>
 {% endif %}
