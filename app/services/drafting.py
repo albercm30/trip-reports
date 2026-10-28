@@ -139,9 +139,10 @@ def draft_intro(db: Session, org: Organization, user: User | None, trip: Trip) -
             return {"engine": "ai", "error": None}
         except ai.AIError as e:
             err = e.code
+    all_notes = "\n".join(d.notes or "" for d in trip.days)
     trip.intro, trip.summary = freedraft.intro_summary(trip.title, trip.location, len(trip.days),
                                                        [r.name for r in rows if r.star and not r.unsure],
-                                                       len(rows), org.report_lang)
+                                                       len(rows), freedraft.draft_lang(all_notes, org.report_lang))
     db.commit()
     return {"engine": "free", "error": err}
 

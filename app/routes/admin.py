@@ -11,6 +11,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import NotFound, current_user
 from ..models import Organization, Trip, User
+from ..services import ai
 from ..web import redirect, render
 
 router = APIRouter(prefix="/app/admin")
@@ -31,7 +32,9 @@ def admin_page(request: Request, db: Session = Depends(get_db), user: User = Dep
                             .group_by(Trip.org_id)).all())
     rows = [{"org": o, "owner": owners.get(o.id), "members": members.get(o.id, 0), "trips": trips.get(o.id, 0),
              "can_write": plans.can_write(o), "days_left": plans.trial_days_left(o)} for o in orgs]
-    return render(request, "app/admin.html", {"rows": rows, "nav": "admin"}, user=user)
+    checked = ai.check() if request.query_params.get("check_ai") else None
+    return render(request, "app/admin.html", {"rows": rows, "nav": "admin", "ai_chain": ai.model_chain(),
+                                              "ai_checked": checked}, user=user)
 
 
 @router.post("/{org_id}/pilot")

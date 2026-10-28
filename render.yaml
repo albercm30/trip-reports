@@ -32,7 +32,7 @@ services:
       - key: LLM_API_KEY
         sync: false            # free AI: a Groq key from console.groq.com (optional)
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile
+        value: openai/gpt-oss-120b   # the app also falls back to other current models by itself
       - key: ANTHROPIC_API_KEY
         sync: false            # optional, paid: Claude instead of Groq
       - key: SUPPORT_EMAIL

@@ -34,4 +34,23 @@
   </table>
 </div>
 <p class="hint">{{ _('Trips counts real trips only, not the examples.') }}</p>
+
+<h2 class="sec">{{ _('AI') }}</h2>
+<div class="panel">
+  {% if not settings.ai_enabled %}
+    <p style="margin:0">{{ _('No AI key is set, so the app uses the free parser and drafter. Add LLM_API_KEY in Render.') }}</p>
+  {% else %}
+    <p style="margin:0 0 8px">{{ _('Models the app tries, in order: {m}.', m=(ai_chain|join(', ')) if ai_chain else settings.anthropic_model) }}</p>
+    {% if ai_checked is not none %}
+      <table class="list"><tbody>
+      {% for r in ai_checked %}
+        <tr><td>{{ r.model }}</td><td>{% if r.ok %}<span class="tag ok">{{ _('Working') }}</span>{% else %}<span class="tag warn">{{ {'rate_limited': _('Busy (free limit reached)'), 'model_gone': _('Retired by the provider'), 'key_rejected': _('Key rejected'), 'network': _('Not reachable'), 'too_long': _('Request too long'), 'bad_output': _('Empty answer')}.get(r.detail, r.detail) }}</span>{% endif %}</td></tr>
+      {% else %}
+        <tr><td>{{ _('No models left to try.') }}</td></tr>
+      {% endfor %}
+      </tbody></table>
+    {% endif %}
+    <a class="btn small" href="/app/admin?check_ai=1" style="margin-top:8px">{{ _('Check the AI') }}</a>
+  {% endif %}
+</div>
 {% endblock %}

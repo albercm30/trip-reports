@@ -25,13 +25,6 @@ ENGINE_NOTE = {
     "ai": "Drafted with AI. Read it through and fix anything that isn't right.",
     "free": "First draft ready. It's built only from your notes and sightings; edit it into your own words.",
 }
-AI_ERRORS = {
-    "rate_limited": "The AI is busy right now, so we used the free drafter instead.",
-    "unavailable": "The AI wasn't available, so we used the free drafter instead.",
-    "too_long": "Your notes were too long for the AI, so we used the free drafter instead.",
-    "refused": "The AI declined to write this, so we used the free drafter instead.",
-    "bad_output": "The AI's answer came back in the wrong format, so we used the free drafter instead.",
-}
 
 
 def _date(v: str | None) -> date | None:
@@ -55,8 +48,7 @@ def _day_url(trip: Trip, day: Day | None = None) -> str:
 
 def _flash_for(user: User, result: dict, base: str | None = None) -> str:
     msg = translate(user.ui_lang, ENGINE_NOTE[result["engine"]]) if base is None else translate(user.ui_lang, base)
-    if result.get("error") in AI_ERRORS:
-        msg = translate(user.ui_lang, AI_ERRORS[result["error"]]) + " " + msg
+    # When the AI can't answer, the free drafter steps in quietly: the guide just gets a draft.
     return msg
 
 
@@ -249,13 +241,11 @@ async def parse_species(trip_id: str, day_id: str, request: Request, db: Session
         msg += " " + translate(user.ui_lang, "Check the {u} highlighted.", u=unsure)
     if r.get("dropped"):
         msg += " " + translate(user.ui_lang, "{n} left out because they weren't in your own words.", n=r["dropped"])
-    if r.get("error") in AI_ERRORS:
-        msg = translate(user.ui_lang, "The AI wasn't available, so the free parser read your list.") + " " + msg
     return redirect(_day_url(trip, day), msg)
 
 
 PROOF_ERRORS = {
-    "unavailable": "Fixing spelling needs the AI, which isn't set up yet.",
+    "unavailable": "Couldn't check the spelling right now. Try again in a minute.",
     "rate_limited": "The AI is busy right now. Try again in a minute.",
     "too_long": "This text is too long to check in one go.",
     "bad_output": "The AI's correction changed too much, so the text was left as it was.",

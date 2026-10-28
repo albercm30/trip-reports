@@ -47,7 +47,7 @@ class Settings:
     # Any OpenAI-compatible provider (default: Groq, which has a free tier)
     llm_api_key: str = ""
     llm_base_url: str = "https://api.groq.com/openai/v1"
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"
 
     # Billing (Stripe)
     stripe_secret_key: str = ""
@@ -141,7 +141,7 @@ def load_settings() -> Settings:
         anthropic_fast_model=_env("ANTHROPIC_FAST_MODEL", "claude-haiku-5-5"),
         llm_api_key=_env("LLM_API_KEY"),
         llm_base_url=_env("LLM_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/"),
-        llm_model=_env("LLM_MODEL", "llama-3.3-70b-versatile"),
+        llm_model=_env("LLM_MODEL", "openai/gpt-oss-120b"),
         stripe_secret_key=_env("STRIPE_SECRET_KEY"),
         stripe_webhook_secret=_env("STRIPE_WEBHOOK_SECRET"),
         stripe_prices={k: v for k, v in prices.items() if v},

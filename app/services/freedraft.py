@@ -153,7 +153,35 @@ def tidy_notes(notes: str, lang: str) -> str:
     return "\n\n".join(paras)
 
 
+ES_WORDS = {"el", "la", "los", "las", "de", "del", "y", "que", "en", "un", "una", "unos", "unas", "con", "por", "para",
+            "vimos", "hemos", "muy", "pero", "también", "salida", "mar", "fue", "había", "cerca", "después", "luego"}
+EN_WORDS = {"the", "and", "we", "of", "to", "in", "a", "with", "for", "saw", "was", "were", "very", "but", "also", "then",
+            "near", "after", "had", "trip", "sea", "some", "there", "them", "on", "at"}
+
+
+def notes_lang(text: str) -> str | None:
+    """'es' or 'en' when the notes are clearly written in one of them, else None."""
+    words = re.findall(r"[a-záéíóúñü]+", (text or "").lower())
+    es = sum(w in ES_WORDS for w in words)
+    en = sum(w in EN_WORDS for w in words)
+    if es + en < 3:
+        return None
+    if es >= 2 * en:
+        return "es"
+    if en >= 2 * es:
+        return "en"
+    return None
+
+
+def draft_lang(notes: str, lang: str) -> str:
+    """Without AI nothing gets translated, so the free draft is written in the language of the notes:
+    a paragraph of Spanish notes followed by English template sentences would read badly."""
+    found = notes_lang(notes)
+    return found if found and found != lang else lang
+
+
 def day_draft(n: int, place: str, notes: str, sightings: list, lang: str) -> str:
+    lang = draft_lang(notes, lang)
     t = _t(lang)
     parts: list[str] = []
     body = tidy_notes(notes, lang)
