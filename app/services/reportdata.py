@@ -170,6 +170,11 @@ def report_checks(trip) -> list[tuple[str, str, dict]]:
             out.append(("warn", "Day {n} has no written report.", {"n": i}))
         elif not d.approved:
             out.append(("warn", "Day {n} hasn't been approved yet.", {"n": i}))
+        if d.narrative.strip():
+            from .verify import day_problems
+            k = len(day_problems(d, trip, i))
+            if k:
+                out.append(("warn", "Day {n}: {k} thing(s) in the text to check against your notes.", {"n": i, "k": k}))
         u = sum(1 for s in d.sightings if not s.sure)
         if u:
             out.append(("info", "Day {n}: unconfirmed identifications ({u}) will show with a “?”.", {"n": i, "u": u}))

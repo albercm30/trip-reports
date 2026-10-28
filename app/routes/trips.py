@@ -15,7 +15,7 @@ from ..deps import current_user, get_day, get_trip, writer
 from ..i18n import translate
 from ..models import Day, Photo, Sighting, Trip, User
 from ..security import ai_limiter
-from ..services import drafting, storage
+from ..services import verify, drafting, storage
 from ..services.reportdata import REPORT_LANGS, build_report, build_tally, report_checks
 from ..web import ok_or_redirect, redirect, render, wants_json
 
@@ -70,6 +70,10 @@ def trip_page(trip_id: str, request: Request, db: Session = Depends(get_db), use
     ctx = {"trip": trip, "tab": tab, "nav": "trips", "can_write": plans.can_write(org),
            "open_day": request.query_params.get("day"), "is_new": request.query_params.get("new") == "1",
            "ai_on": settings.ai_enabled, "REPORT_LANGS": REPORT_LANGS}
+    if tab == "days":
+        ctx["day_checks"] = {d.id: verify.day_problems(d, trip, i) for i, d in enumerate(trip.days, 1) if d.narrative}
+    if tab == "trip":
+        ctx["trip_checks"] = verify.trip_text_problems(trip, len(build_tally(trip))) if (trip.intro or trip.summary) else []
     if tab == "report":
         ctx["R"] = build_report(trip, org, settings.name_for(trip.report_lang))
         ctx["checks"] = report_checks(trip)

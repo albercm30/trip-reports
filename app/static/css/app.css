@@ -240,3 +240,7 @@ footer.site .langs{margin-left:12px}
 .dictate-live{font-style:italic;min-height:1em}
 .sp .heard-as{grid-column:1/-1;margin:0;font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}
 select.dictate-lang{width:auto;min-height:36px;padding:4px 8px;font-size:.85rem;font-weight:600}
+
+.problems{background:var(--warn-bg);border-left:3px solid var(--warn);border-radius:10px;padding:10px 14px;margin:8px 0 12px;font-size:.92rem}
+.problems ul{margin:4px 0 0;padding-left:18px}
+.problems li{margin:2px 0}

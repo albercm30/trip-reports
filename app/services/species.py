@@ -34,6 +34,8 @@ def _sing(w: str) -> str:
         return w
     if w.endswith("ies") and len(w) > 4:
         return w[:-3] + "y"
+    if w.endswith("ces") and len(w) > 6:  # Spanish: alcatraces, perdices, codornices
+        return w[:-3] + "z"
     if w.endswith(("ches", "shes", "sses", "xes")):
         return w[:-2]
     if w.endswith("es") and len(w) > 4 and w[-3] in "nrdzl":  # Spanish: leones, jabalies, perdiceras
@@ -178,6 +180,9 @@ class Vocab:
                     break
         if h:
             k = sing_all(h)
+            h2 = self.homophones.get(k) or self.homophones.get(norm(h))
+            if h2:
+                k = sing_all(h2)
         e = self._exact(k)
         if e:
             return e, 1.0
@@ -205,22 +210,25 @@ class Vocab:
 VAGUE = re.compile(r"\b(unidentified|unknown|sp|spp|kind of|sort of|some kind of|sin identificar|tipo de|especie de|"
                    r"alg[uú]n tipo de)\b", re.I)
 # Words about HOW MANY ("lots of", "muchas"): dropped, they don't make the species uncertain.
-QUANTITY = re.compile(r"\b(some|several|few|a few|lots of|loads of|many|plenty of|algun[oa]s?|vari[oa]s|much[oa]s|"
-                      r"un mont[oó]n de|bastantes)\b", re.I)
+QUANTITY = re.compile(r"\b(some|several|few|a few|lots of|loads of|lots|loads|heaps|many|plenty of|plenty|"
+                      r"algun[oa]s?|vari[oa]s|much[oa]s|much[ií]sim[oa]s|un mont[oó]n de|bastantes|un grupo de|"
+                      r"grupo de|a group of|a pod of|pod of)\b", re.I)
 DOUBT = re.compile(r"(\?|\b(probably|probable|prob|possible|poss|maybe|perhaps|likely|i think|not sure|"
                    r"posible|probablemente|quiz[aá]s?|tal vez|creo que|no seguro)\b)", re.I)
 HEARD = re.compile(r"\b(heard( only)?|calling|call(ed|ing)?|singing|o[ií]d[oa]s?|o[ií]mos|escuchad[oa]s?|"
                    r"escuchamos|cantando)\b|\(h\)|(^|\s)h(\s|$)", re.I)
-NEGATION = re.compile(r"^\s*(no|not|none|without|missed|dipped( on)?|didn'?t see|did not see|sin|ning[uú]n[oa]?|"
-                      r"no vimos|no hubo)\b", re.I)
+NEGATION = re.compile(r"^\s*(no|not|none|without|missed|dipped( on)?|didn'?t see|did not see|no sign of|sin|"
+                      r"ning[uú]n[oa]?|no vimos|no hubo|ni|nada de|ni rastro)\b", re.I)
 FILLER = re.compile(r"\b(um+|uh+|erm|eh+|like|okay|ok|so|then|also|plus|we saw|we had|we spotted|saw|seen|got|"
                     r"and then|bueno|pues|vale|este|vimos|hemos visto|visto|vistos|vista|vistas|tambi[eé]n|"
+                    r"enorme|enormes|grande|grandes|peque[nñ]o|peque[nñ]a|precios[oa]s?|incre[ií]ble|espectacular|"
+                    r"preciosa|bonit[oa]s?|huge|big|small|little|beautiful|amazing|gorgeous|stunning|lovely|"
                     r"hab[ií]a|hubo|luego|despu[eé]s|the|a|an|un|una|el|la|los|las|of|de|del)\b", re.I)
 SPOKEN_PUNCT = re.compile(r"\b(comma|coma|full stop|period|punto( y coma)?|next|siguiente|new line|nueva l[ií]nea)\b", re.I)
 CORRECTION = re.compile(r"\b(no wait|wait no|sorry|i mean|actually|correction|perd[oó]n|digo|mejor dicho|no espera)\b|"
                         r"(?<=\d)\s*,?\s*no\s*,?\s*(?=\d)", re.I)
 SPLIT = re.compile(r"[\n;,•·]+|\s+\b(?:and|y|e)\b\s+", re.I)
-PAIR = re.compile(r"\b(a |one |una |un )?(pair|pareja|couple)( of| de)?\b", re.I)
+PAIR = re.compile(r"\b(a |one |una |un )?(pair|pareja|couple|par)( of| de)?\b", re.I)
 TIMES = re.compile(r"\b(times|por|x)\s+(?=\d)", re.I)
 
 
@@ -391,10 +399,16 @@ def parse_tally(text: str, vocab: Vocab | None = None, lang: str = "en") -> list
     for chunk in SPLIT.split(_prepare(text)):
         if not chunk or chunk.lower() in ("and", "y", "e"):
             continue
+        doubt = False
         for part in [p for run in _split_runs(chunk) for p in _segment(run, vocab)]:
+            if DOUBT.search(part) and not re.sub(DOUBT, " ", FILLER.sub(" ", part)).strip(" ,.?"):
+                doubt = True  # "creo que", "maybe" on their own: about the next species
+                continue
             row = parse_entry(part, vocab)
             if not row:
                 continue
+            if doubt:
+                row["sure"], doubt = False, False
             e = row.pop("_entry", None)
             if e and lang == "es":
                 row["name"] = e["es"]

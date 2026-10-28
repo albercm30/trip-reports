@@ -260,3 +260,53 @@
       .then(function () { sb.disabled = false; });
   });
 })();
+
+/* ---------- admin: AI accuracy tests, one case at a time (free AI plans have per-minute limits) */
+(function () {
+  var box = document.getElementById("accuracy");
+  if (!box) return;
+  var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || "";
+  var run = document.getElementById("acc-run"), status = document.getElementById("acc-status");
+  var out = document.getElementById("acc-json"), summary = document.getElementById("acc-summary");
+  function cell(s) {
+    if (!s) return "—";
+    return (s.ok ? "✅ " : "❌ ") + s.found + "/" + s.expected;
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  run.addEventListener("click", function () {
+    var rows = Array.prototype.slice.call(box.querySelectorAll("tr[data-case]"));
+    var draft = document.getElementById("acc-draft").checked;
+    var results = [], i = 0;
+    run.disabled = true;
+    function next() {
+      if (i >= rows.length) {
+        var ok = results.filter(function (r) { return r.ai ? r.ai.ok : r.free.ok; }).length;
+        var clean = results.filter(function (r) { return r.draft && !r.draft.problems.length; }).length;
+        var drafted = results.filter(function (r) { return r.draft; }).length;
+        summary.textContent = ok + " / " + results.length + " ✅" + (drafted ? " · " + clean + " / " + drafted + " 📝" : "");
+        out.value = JSON.stringify(results, null, 1);
+        status.textContent = ""; run.disabled = false;
+        return;
+      }
+      var tr = rows[i], id = tr.getAttribute("data-case");
+      status.textContent = (i + 1) + " / " + rows.length + "…";
+      tr.querySelector(".c-ai").textContent = "…";
+      fetch(box.getAttribute("data-url") + id + (draft ? "?draft=1" : ""), { method: "POST", credentials: "same-origin",
+        headers: { "X-Requested-With": "fetch", "X-CSRF-Token": csrf } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          results.push(j);
+          tr.querySelector(".c-free").textContent = cell(j.free);
+          tr.querySelector(".c-raw").textContent = j.ai_error ? "⚠️ " + j.ai_error : cell(j.ai_raw);
+          tr.querySelector(".c-ai").textContent = j.ai_error ? "⚠️ " + j.ai_error : cell(j.ai);
+          tr.querySelector(".c-draft").textContent = j.draft ? (j.draft.problems.length ? "❌ " + j.draft.problems.length : "✅") : (j.draft_error ? "⚠️ " + j.draft_error : "—");
+          var probs = (j.ai || j.free).problems.concat(j.draft ? j.draft.problems.map(function (p) { return p.kind + ": " + p.what; }) : []);
+          tr.querySelector(".acc-detail").innerHTML = probs.map(esc).join("<br>") +
+            (j.draft ? "<details><summary>📝</summary>" + esc(j.draft.text) + "</details>" : "");
+        })
+        .catch(function () { tr.querySelector(".c-ai").textContent = "⚠️"; results.push({ id: id, error: "request" }); })
+        .then(function () { i++; next(); });
+    }
+    next();
+  });
+})();

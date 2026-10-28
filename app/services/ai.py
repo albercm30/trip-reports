@@ -282,7 +282,23 @@ def parse_species(tally: str, notes: str, lang: str, context: str, known: str = 
     return _json(text), i, o
 
 
-def day_prompt(n: int, date_s: str, place: str, notes: str, species_lines: str, lang: str, tone: str, context: str) -> str:
+def _fix_block(previous: str, problems: str) -> str:
+    if not problems:
+        return ""
+    return f"""
+
+A first draft had mistakes. Write a new version that fixes ALL of these, keeping everything that was right:
+{problems}
+
+First draft:
+\"\"\"
+{previous[:4000]}
+\"\"\"
+"""
+
+
+def day_prompt(n: int, date_s: str, place: str, notes: str, species_lines: str, lang: str, tone: str, context: str,
+               previous: str = "", problems: str = "") -> str:
     return f"""Write the Day {n} section of a wildlife trip report that a tour operator will send to its guests.
 
 Style: {TONES.get(tone, TONES['warm'])}.
@@ -315,14 +331,15 @@ Guide's notes:
 \"\"\"
 
 Species list for this day:
-{species_lines or '(no species listed)'}"""
+{species_lines or '(no species listed)'}{_fix_block(previous, problems)}"""
 
 
 def draft_day(**kw) -> tuple[str, int, int]:
     return complete(day_prompt(**kw), max_tokens=900)
 
 
-def intro_prompt(days_text: str, n_days: int, n_species: int, guests, lang: str, tone: str, context: str) -> str:
+def intro_prompt(days_text: str, n_days: int, n_species: int, guests, lang: str, tone: str, context: str,
+                 previous: str = "", problems: str = "") -> str:
     return f"""Write the opening and closing paragraphs of a wildlife trip report a tour operator sends to its guests.
 
 Style: {TONES.get(tone, TONES['warm'])}. Language: every sentence in {LANG_NAMES.get(lang, 'English')}, translating if
@@ -340,7 +357,7 @@ Day reports:
 {days_text[:20000]}
 \"\"\"
 
-Reply with only JSON: {{"intro":"...","summary":"..."}}"""
+Reply with only JSON: {{"intro":"...","summary":"..."}}{_fix_block(previous, problems)}"""
 
 
 def draft_intro(**kw) -> tuple[dict, int, int]:

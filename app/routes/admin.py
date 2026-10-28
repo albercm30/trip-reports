@@ -11,7 +11,12 @@ from ..config import settings
 from ..db import get_db
 from ..deps import NotFound, current_user
 from ..models import Organization, Trip, User
-from ..services import ai
+import time
+from types import SimpleNamespace
+
+from fastapi.responses import JSONResponse
+
+from ..services import ai, evalcases, species as sp, verify
 from ..web import redirect, render
 
 router = APIRouter(prefix="/app/admin")
@@ -61,3 +66,60 @@ def back_to_trial(org_id: str, request: Request, db: Session = Depends(get_db), 
     org.trial_ends_at = plans.new_trial_end(settings.trial_days)
     db.commit()
     return redirect("/app/admin", "Free trial restarted.")
+
+
+# ---------------------------------------------------------------- AI accuracy test
+@router.get("/accuracy")
+def accuracy_page(request: Request, user: User = Depends(admin)):
+    return render(request, "app/accuracy.html", {"nav": "admin", "cases": evalcases.CASES,
+                                                 "ai_on": settings.ai_enabled}, user=user)
+
+
+@router.post("/accuracy/{case_id}")
+def accuracy_run(case_id: str, request: Request, user: User = Depends(admin)):
+    """Run one test case through the same steps the app uses: AI reading, then the code checks,
+    then a day report from the result and its fact-check. Nothing is saved."""
+    case = evalcases.by_id(case_id)
+    if case is None:
+        raise NotFound()
+    lang, raw, notes = case["lang"], case["tally"], case["notes"]
+    out = {"id": case_id, "title": case["title"]}
+    free = sp.parse_tally(raw, sp.default_vocab(), lang)
+    for r in free:
+        r.pop("_entry", None)
+    out["free"] = evalcases.score(case, free)
+    t0 = time.time()
+    rows = None
+    if settings.ai_enabled:
+        try:
+            data, _, _ = ai.parse_species(raw, notes, lang, "Trip: test\nArea: (not given)\nOperator: test")
+            rows = sp.clean_ai_rows(data, raw + "\n" + notes)
+            out["ai_raw"] = evalcases.score(case, [dict(r) for r in rows])
+            rows, changes = verify.check_species_rows(rows, raw + "\n" + notes, sp.default_vocab(), lang, tally=raw)
+            out["ai"] = evalcases.score(case, rows)
+            out["changes"] = changes
+        except ai.AIError as e:
+            out["ai_error"] = e.code
+    final = rows if rows is not None else free
+    out["rows"] = [{k: r.get(k) for k in ("name", "sci", "count", "sure", "star", "heard")} for r in final]
+    if settings.ai_enabled and final and request.query_params.get("draft") == "1":
+        species = [SimpleNamespace(name=r["name"], sci=r.get("sci", ""), count=r.get("count"), sure=r.get("sure", True),
+                                   heard=r.get("heard", False), star=r.get("star", False)) for r in final]
+        lines = "\n".join(f"- {s.name}{' (' + s.sci + ')' if s.sci else ''}{' x' + str(s.count) if s.count else ''}"
+                          f"{'' if s.sure else ' [UNCONFIRMED]'}" for s in species)
+        notes_all = (raw + "\n" + notes).strip()
+        try:
+            kw = dict(n=1, date_s="", place="", notes=notes_all, species_lines=lines, lang=lang, tone="warm", context="")
+            text, _, _ = ai.draft_day(**kw)
+            probs = verify.check_text(text, lang=lang, species=species, notes=notes_all, allowed_numbers={1})
+            first = len(probs)
+            if probs:
+                text2, _, _ = ai.draft_day(**kw, previous=text, problems=verify.feedback(probs, lang))
+                probs2 = verify.check_text(text2, lang=lang, species=species, notes=notes_all, allowed_numbers={1})
+                if len(probs2) <= len(probs):
+                    text, probs = text2, probs2
+            out["draft"] = {"text": text, "problems": probs, "first_try_problems": first}
+        except ai.AIError as e:
+            out["draft_error"] = e.code
+    out["seconds"] = round(time.time() - t0, 1)
+    return JSONResponse(out)

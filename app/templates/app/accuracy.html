@@ -1,0 +1,27 @@
+{% extends "app/base_app.html" %}
+{% block title %}{{ _('AI accuracy') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<p><a href="/app/admin">← {{ _('Admin') }}</a></p>
+<h1 class="page">{{ _('AI accuracy') }}</h1>
+<p class="lede">{{ _('Messy field notes with known right answers, run through the same steps as the app: the AI reads them, the code checks the result, and (optionally) a day report is written and fact-checked. Nothing is saved.') }}</p>
+{% if not ai_on %}<p class="error">{{ _('No AI key is set, so only the free parser is tested.') }}</p>{% endif %}
+<div class="panel" id="accuracy" data-url="/app/admin/accuracy/">
+  <div class="row">
+    <button type="button" class="btn primary" id="acc-run">{{ _('Run all tests') }}</button>
+    <label class="row" style="gap:6px"><input type="checkbox" id="acc-draft" checked> {{ _('Also write and check a day report') }}</label>
+    <span class="hint" id="acc-status" aria-live="polite"></span>
+  </div>
+  <p class="hint">{{ _('Free AI plans allow only a few requests a minute, so this takes a few minutes. Leave the page open.') }}</p>
+  <table class="list acc">
+    <thead><tr><th>{{ _('Test') }}</th><th>{{ _('Free parser') }}</th><th>{{ _('AI alone') }}</th><th>{{ _('AI + checks') }}</th><th>{{ _('Day report') }}</th></tr></thead>
+    <tbody>
+    {% for c in cases %}
+      <tr data-case="{{ c.id }}"><td><strong>{{ c.title }}</strong><br><span class="hint">{{ c.tally or c.notes }}</span><div class="acc-detail hint"></div></td><td class="c-free">—</td><td class="c-raw">—</td><td class="c-ai">—</td><td class="c-draft">—</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p id="acc-summary" style="margin:12px 0 0;font-weight:600"></p>
+  <label class="field" style="margin-top:12px"><span>{{ _('Results (to share)') }}</span><textarea id="acc-json" rows="4" readonly></textarea></label>
+  <button type="button" class="btn small" data-copy="acc-json">{{ _('Copy') }}</button>
+</div>
+{% endblock %}

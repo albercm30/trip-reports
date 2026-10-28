@@ -223,5 +223,10 @@ HOMOPHONES = {
     "calamones": "calamón común", "calamón": "calamón común", "grullas": "grulla común", "grulla": "grulla común",
     "ciervos": "ciervo", "jabalíes": "jabalí", "nutrias": "nutria", "calderones": "calderón tropical",
     "mulares": "delfín mular", "delfines mulares": "delfín mular", "cachalotes": "cachalote",
-    "pardelas": "pardela cenicienta", "pardela": "pardela cenicienta", "picogordos": "picogordo común",
+    "pardelas": "pardela cenicienta", "pardela": "pardela cenicienta",
+    "delfin moteado": "delfín moteado del atlántico", "delfines moteados": "delfín moteado del atlántico",
+    "moteados": "delfín moteado del atlántico", "delfin listado": "delfín listado",
+    "alcatraz": "alcatraz atlántico", "alcatraces": "alcatraz atlántico", "cacha lote": "cachalote",
+    "rorcuales tropicales": "rorcual tropical", "tortuga voba": "tortuga boba", "tortugas bobas": "tortuga boba",
+    "calderones tropicales": "calderón tropical", "calderones grises": "calderón gris", "picogordos": "picogordo común",
 }

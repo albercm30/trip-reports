@@ -37,6 +37,7 @@
     <label class="field"><span>{{ _('Opening paragraph') }}</span><textarea class="prose" name="intro" data-dictate style="min-height:140px">{{ trip.intro }}</textarea></label>
     <label class="field"><span>{{ _('Closing paragraph') }}</span><textarea class="prose" name="summary" data-dictate style="min-height:140px">{{ trip.summary }}</textarea></label>
     {% if can_write %}
+    {% set problems = trip_checks %}{% include "app/_problems.html" %}
     <div class="row">
       <button class="btn primary" formaction="/app/trips/{{ trip.id }}/intro/draft" data-busy="{{ _('Writing the opening and closing…') }}" {% if not trip.days %}disabled{% endif %}>{{ _('Draft opening and closing') }}</button>
       {% if ai_on and (trip.intro or trip.summary) %}<button class="btn small" formaction="/app/trips/{{ trip.id }}/proofread" data-busy="{{ _('Fixing spelling…') }}">{{ _('Fix spelling') }}</button>{% endif %}
@@ -116,6 +117,7 @@
 
       <h2 class="sec" id="narr-{{ d.id }}">{{ _('Day report') }}</h2>
       <label class="field"><span class="sr">{{ _('Day {n} report', n=n) }}</span><textarea class="prose" name="narrative" data-dictate placeholder="{{ _('Write it yourself, or let the app draft it from your notes and sightings.') }}">{{ d.narrative }}</textarea></label>
+      {% set problems = (day_checks or {}).get(d.id) %}{% include "app/_problems.html" %}
       {% if can_write %}
       <div class="row">
         <button class="btn primary" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/draft" data-busy="{{ _('Writing the day report…') }}" {% if d.narrative %}data-confirm="{{ _('Replace the current day report with a new draft?') }}"{% endif %}>{{ _('Redraft') if d.narrative else _('Draft day report') }}</button>

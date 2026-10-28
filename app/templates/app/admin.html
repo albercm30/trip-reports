@@ -50,7 +50,8 @@
       {% endfor %}
       </tbody></table>
     {% endif %}
-    <a class="btn small" href="/app/admin?check_ai=1" style="margin-top:8px">{{ _('Check the AI') }}</a>
+    <div class="row" style="margin-top:8px"><a class="btn small" href="/app/admin?check_ai=1">{{ _('Check the AI') }}</a>
+    <a class="btn small" href="/app/admin/accuracy">{{ _('Test accuracy') }}</a></div>
   {% endif %}
 </div>
 {% endblock %}
