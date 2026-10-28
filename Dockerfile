@@ -4,10 +4,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-compile -r requirements.txt
 
 COPY . .
-RUN useradd --create-home appuser && mkdir -p /app/uploads && chown -R appuser /app
+RUN useradd --create-home appuser && mkdir -p /app/uploads && chown appuser /app/uploads
 USER appuser
 
 ENV PORT=8000

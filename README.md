@@ -49,7 +49,7 @@ Everything below has a free tier and needs no paid service.
    - Test with card `4242 4242 4242 4242`. Switch to live keys and live prices when you're ready to charge.
 4. **Legal pages:** set `LEGAL_NAME`, `LEGAL_ADDRESS`, `SUPPORT_EMAIL` (and `LEGAL_ID` for your NIF), and have the privacy and terms pages reviewed before taking real customers.
 
-Free AI: create a key at console.groq.com (no card) and set `LLM_API_KEY` in Render. Optional later: `ANTHROPIC_API_KEY` for Claude, `BREVO_API_KEY` + `MAIL_FROM` for emailed resets and invites (Render's free tier blocks SMTP, so `SMTP_*` only works elsewhere), `STORAGE=s3` for S3 or Cloudflare R2 when photos outgrow the database.
+Free AI: create a key at console.groq.com (no card) and set `LLM_API_KEY` in Render. Optional later: `ANTHROPIC_API_KEY` for Claude (also move `anthropic` from requirements-optional.txt into requirements.txt), `BREVO_API_KEY` + `MAIL_FROM` for emailed resets and invites (Render's free tier blocks SMTP, so `SMTP_*` only works elsewhere), `STORAGE=s3` for S3 or Cloudflare R2 (same with `boto3`) when photos outgrow the database.
 
 ## Project layout
 

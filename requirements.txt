@@ -8,7 +8,4 @@ psycopg[binary]>=3.2
 httpx>=0.27
 pillow>=10.4
 stripe>=11
-# Optional, only used when ANTHROPIC_API_KEY is set:
-anthropic>=0.40
-# Optional, only used when STORAGE=s3:
-boto3>=1.34
+# Optional extras (Claude, S3 photo storage) are in requirements-optional.txt to keep deploys fast.

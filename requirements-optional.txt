@@ -1,0 +1,5 @@
+# Only needed for these features. Add the line to requirements.txt when you turn one on.
+# ANTHROPIC_API_KEY (Claude instead of the free Groq models):
+anthropic>=0.40
+# STORAGE=s3 (photos in S3 or Cloudflare R2):
+boto3>=1.34
