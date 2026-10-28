@@ -8,13 +8,13 @@
 {% if lang == 'es' %}
 <h1 class="page">Política de privacidad</h1>
 <h2 class="sec">Responsable</h2>
-<p>{{ who }}, {{ where }}. Contacto: {{ contact }}.</p>
+<p>{{ who }}{% if settings.legal_id %} (NIF {{ settings.legal_id }}){% endif %}, {{ where }}. Contacto: {{ contact }}.</p>
 <h2 class="sec">Qué datos tratamos</h2>
 <p>Datos de la cuenta (nombre, email, empresa), el contenido que tu equipo crea (viajes, notas, avistamientos, fotos e informes), datos de facturación gestionados por Stripe y registros técnicos mínimos (dirección IP en registros de seguridad).</p>
 <h2 class="sec">Para qué y con qué base</h2>
 <p>Para prestar el servicio contratado (ejecución del contrato), cobrar la suscripción (obligación legal y contrato) y mantener la seguridad (interés legítimo). No vendemos datos ni los usamos para publicidad.</p>
 <h2 class="sec">Encargados del tratamiento</h2>
-<p>Alojamiento y base de datos de nuestro proveedor de hosting; pagos con Stripe; comprobación de nombres de especies con GBIF (solo se envían nombres de especies); y, si está activado, un proveedor de IA (Groq o Anthropic) para interpretar notas, comprobar la ortografía y redactar borradores; se le envían las notas y la lista de especies del día. Estos proveedores no usan esos datos para entrenar sus modelos.</p>
+<p>Alojamiento y base de datos de nuestro proveedor de hosting; pagos con Stripe; envío de emails de la cuenta (invitaciones y cambio de contraseña) con Brevo; comprobación de nombres de especies con GBIF (solo se envían nombres de especies); y, si está activado, un proveedor de IA (Groq o Anthropic) para interpretar notas, comprobar la ortografía y redactar borradores; se le envían las notas y la lista de especies del día. Estos proveedores no usan esos datos para entrenar sus modelos.</p>
 <h2 class="sec">Dictado</h2>
 <p>El botón «Dictar» usa el reconocimiento de voz de tu navegador. Según el navegador (por ejemplo Chrome o Safari), el audio puede procesarlo su fabricante. Nosotros solo recibimos el texto resultante. Si prefieres no usarlo, escribe o usa el teclado.</p>
 <h2 class="sec">Fotos</h2>
@@ -26,13 +26,13 @@
 {% else %}
 <h1 class="page">Privacy policy</h1>
 <h2 class="sec">Who we are</h2>
-<p>{{ who }}, {{ where }}. Contact: {{ contact }}.</p>
+<p>{{ who }}{% if settings.legal_id %} (tax ID {{ settings.legal_id }}){% endif %}, {{ where }}. Contact: {{ contact }}.</p>
 <h2 class="sec">What we process</h2>
 <p>Account details (name, email, company), the content your team creates (trips, notes, sightings, photos and reports), billing details handled by Stripe, and minimal technical logs (IP address in security logs).</p>
 <h2 class="sec">Why, and on what basis</h2>
 <p>To provide the service you signed up for (contract), to charge your subscription (contract and legal obligation) and to keep the service secure (legitimate interest). We don't sell data or use it for advertising.</p>
 <h2 class="sec">Processors</h2>
-<p>Our hosting and database provider; Stripe for payments; GBIF to check species names (only species names are sent); and, when enabled, an AI provider (Groq or Anthropic) to read notes, fix spelling and draft reports; it receives the day's notes and species list. These providers don't use that data to train their models.</p>
+<p>Our hosting and database provider; Stripe for payments; Brevo to send account emails (invites and password resets); GBIF to check species names (only species names are sent); and, when enabled, an AI provider (Groq or Anthropic) to read notes, fix spelling and draft reports; it receives the day's notes and species list. These providers don't use that data to train their models.</p>
 <h2 class="sec">Dictation</h2>
 <p>The “Dictate” button uses your browser's speech recognition. Depending on the browser (for example Chrome or Safari), the audio may be processed by its maker. We only receive the resulting text. If you prefer not to use it, type or use your keyboard.</p>
 <h2 class="sec">Photos</h2>

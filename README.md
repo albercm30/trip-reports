@@ -47,9 +47,9 @@ Everything below has a free tier and needs no paid service.
    - Developers → Webhooks → add endpoint `https://YOUR-APP/billing/webhook` with events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
    - Settings → Billing → Customer portal: turn it on and allow cancelling and switching plans.
    - Test with card `4242 4242 4242 4242`. Switch to live keys and live prices when you're ready to charge.
-4. **Legal pages:** set `LEGAL_NAME`, `LEGAL_ADDRESS` and `SUPPORT_EMAIL`, and have the privacy and terms pages reviewed before taking real customers.
+4. **Legal pages:** set `LEGAL_NAME`, `LEGAL_ADDRESS`, `SUPPORT_EMAIL` (and `LEGAL_ID` for your NIF), and have the privacy and terms pages reviewed before taking real customers.
 
-Free AI: create a key at console.groq.com (no card) and set `LLM_API_KEY` in Render. Optional later: `ANTHROPIC_API_KEY` for Claude, `SMTP_*` for emailed resets and invites (without it, links are shown on screen), `STORAGE=s3` for S3 or Cloudflare R2 when photos outgrow the database.
+Free AI: create a key at console.groq.com (no card) and set `LLM_API_KEY` in Render. Optional later: `ANTHROPIC_API_KEY` for Claude, `BREVO_API_KEY` + `MAIL_FROM` for emailed resets and invites (Render's free tier blocks SMTP, so `SMTP_*` only works elsewhere), `STORAGE=s3` for S3 or Cloudflare R2 when photos outgrow the database.
 
 ## Project layout
 
@@ -76,3 +76,7 @@ app/
 migrations/          Alembic
 tests/               pytest suite
 ```
+
+## Pilot companies
+
+Set `ADMIN_EMAILS` to your login email. An **Admin** tab then lists every company that signed up; **Make pilot** gives a company everything free with no end date, and **End pilot** puts it back on a normal free trial.

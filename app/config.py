@@ -68,6 +68,8 @@ class Settings:
     smtp_user: str = ""
     smtp_password: str = ""
     mail_from: str = ""
+    mail_from_name: str = ""
+    brevo_api_key: str = ""  # Brevo's HTTP API: works where SMTP ports are blocked (Render's free tier)
 
     # Species name checks against the GBIF Backbone Taxonomy (CC BY 4.0)
     gbif_check: bool = True
@@ -75,6 +77,8 @@ class Settings:
     support_email: str = ""
     legal_name: str = ""
     legal_address: str = ""
+    legal_id: str = ""  # NIF/CIF, shown in the legal notice when set
+    admin_emails: tuple = ()  # who can see /app/admin (pilot accounts)
 
     def name_for(self, lang: str) -> str:
         """The product name in a language (a real brand would use one name everywhere)."""
@@ -98,7 +102,10 @@ class Settings:
 
     @property
     def mail_enabled(self) -> bool:
-        return bool(self.smtp_host and self.mail_from)
+        return bool((self.smtp_host or self.brevo_api_key) and self.mail_from)
+
+    def is_admin(self, email: str | None) -> bool:
+        return bool(email) and email.strip().lower() in self.admin_emails
 
 
 def load_settings() -> Settings:
@@ -149,10 +156,14 @@ def load_settings() -> Settings:
         smtp_user=_env("SMTP_USER"),
         smtp_password=_env("SMTP_PASSWORD"),
         mail_from=_env("MAIL_FROM"),
+        mail_from_name=_env("MAIL_FROM_NAME"),
+        brevo_api_key=_env("BREVO_API_KEY"),
         gbif_check=_bool("GBIF_CHECK", True),
         support_email=_env("SUPPORT_EMAIL"),
         legal_name=_env("LEGAL_NAME"),
         legal_address=_env("LEGAL_ADDRESS"),
+        legal_id=_env("LEGAL_ID"),
+        admin_emails=tuple(e.strip().lower() for e in _env("ADMIN_EMAILS").split(",") if e.strip()),
     )
 
 

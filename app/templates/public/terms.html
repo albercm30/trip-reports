@@ -2,6 +2,7 @@
 {% block title %}{{ _('Terms') }} · {{ app_name }}{% endblock %}
 {% set who = settings.legal_name or '[LEGAL NAME]' %}
 {% set contact = settings.support_email or '[EMAIL]' %}
+{% set where = settings.legal_address or '[ADDRESS]' %}
 {% block main %}
 <div class="wrap" style="max-width:720px">
 {% if lang == 'es' %}
@@ -12,7 +13,7 @@
 <h2 class="sec">Contenido</h2><p>Tu contenido es tuyo. Nos das permiso para almacenarlo y procesarlo solo para prestar el servicio. Los borradores generados automáticamente pueden contener errores: revisa y aprueba cada día antes de enviarlo.</p>
 <h2 class="sec">Disponibilidad</h2><p>Hacemos lo posible por mantener el servicio disponible y hacer copias de seguridad, pero no garantizamos que funcione sin interrupciones.</p>
 <h2 class="sec">Responsabilidad</h2><p>En la medida permitida por la ley, nuestra responsabilidad se limita a lo pagado en los últimos 12 meses.</p>
-<h2 class="sec">Contacto</h2><p>{{ contact }}</p>
+<h2 class="sec">Titular del servicio</h2><p>{{ who }}{% if settings.legal_id %}, NIF {{ settings.legal_id }}{% endif %}. Domicilio: {{ where }}. Email: {{ contact }}. Estas condiciones se rigen por la ley española.</p>
 {% else %}
 <h1 class="page">Terms of use</h1>
 <p>{{ app_name }} is a service by {{ who }} that helps nature and wildlife tour operators create trip reports.</p>
@@ -21,7 +22,7 @@
 <h2 class="sec">Content</h2><p>Your content is yours. You allow us to store and process it only to provide the service. Automatically generated drafts can contain mistakes: review and approve each day before sending it.</p>
 <h2 class="sec">Availability</h2><p>We work to keep the service available and backed up, but we don't guarantee uninterrupted operation.</p>
 <h2 class="sec">Liability</h2><p>As far as the law allows, our liability is limited to the amount you paid in the last 12 months.</p>
-<h2 class="sec">Contact</h2><p>{{ contact }}</p>
+<h2 class="sec">Who provides the service</h2><p>{{ who }}{% if settings.legal_id %}, tax ID {{ settings.legal_id }}{% endif %}. Address: {{ where }}. Email: {{ contact }}. These terms are governed by Spanish law.</p>
 {% endif %}
 </div>
 {% endblock %}

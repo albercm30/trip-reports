@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
             h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
 
-    from .routes import account, app_pages, auth, billing, public, reports, settings_pages, trips
+    from .routes import account, admin, app_pages, auth, billing, public, reports, settings_pages, trips
 
     guarded = [Depends(verify_csrf)]
     app.include_router(public.router, dependencies=guarded)
@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_pages.router, dependencies=guarded)
     app.include_router(account.router, dependencies=guarded)
     app.include_router(billing.router, dependencies=guarded)
+    app.include_router(admin.router, dependencies=guarded)
     app.include_router(billing.webhook_router)  # Stripe signs its own requests; no CSRF there
 
     @app.exception_handler(LoginRequired)

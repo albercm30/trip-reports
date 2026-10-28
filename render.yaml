@@ -37,6 +37,14 @@ services:
         sync: false            # optional, paid: Claude instead of Groq
       - key: SUPPORT_EMAIL
         sync: false
+      - key: ADMIN_EMAILS
+        sync: false            # your login email(s), comma separated: they see the Admin page (pilot accounts)
+      - key: BREVO_API_KEY
+        sync: false            # free email sending (300/day) from brevo.com; Render's free tier blocks SMTP
+      - key: MAIL_FROM
+        sync: false            # a sender address verified in Brevo, e.g. your Gmail
+      - key: LEGAL_ID
+        sync: false            # optional: your NIF, shown in the legal pages
       - key: LEGAL_NAME
         sync: false
       - key: LEGAL_ADDRESS

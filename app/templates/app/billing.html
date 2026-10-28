@@ -13,6 +13,9 @@
       <strong>{{ _('Your trial has ended') }}</strong>
       <p style="margin:4px 0 0">{{ _('Your trips are safe and readable. Choose a plan to keep creating and editing reports.') }}</p>
     {% endif %}
+  {% elif org.plan == 'pilot' %}
+    <strong>{{ _('Pilot company') }}</strong> <span class="tag ok">{{ _('Active') }}</span>
+    <p style="margin:4px 0 0">{{ _('Free with everything included while we build the product together. Thank you for your ideas!') }}</p>
   {% else %}
     <strong>{{ _('Starter') if org.plan == 'starter' else _('Pro') }}</strong>
     {% set st = {'active': _('Active'), 'trialing': _('Active'), 'past_due': _('Payment failed: update your card'), 'canceled': _('Cancelled'), 'unpaid': _('Unpaid'), 'incomplete': _('Waiting for payment'), 'incomplete_expired': _('Expired'), 'paused': _('Paused')} %}

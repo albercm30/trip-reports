@@ -16,6 +16,7 @@
     <a href="/app/settings" {% if nav == 'settings' %}aria-current="page"{% endif %}>{{ _('Company') }}</a>
     {% if user.is_owner %}<a href="/app/billing" {% if nav == 'billing' %}aria-current="page"{% endif %}>{{ _('Plan') }}</a>{% endif %}
     <a href="/app/account" {% if nav == 'account' %}aria-current="page"{% endif %}>{{ _('Account') }}</a>
+    {% if settings.is_admin(user.email) %}<a href="/app/admin" {% if nav == 'admin' %}aria-current="page"{% endif %}>{{ _('Admin') }}</a>{% endif %}
   </nav>
   {% if not can_edit %}
     <div class="banner">{{ _('Your account is read-only.') }} {% if user.is_owner %}<a href="/app/billing">{{ _('Choose a plan') }}</a> {{ _('to keep creating reports.') }}{% else %}{{ _('Ask the account owner to choose a plan.') }}{% endif %}</div>

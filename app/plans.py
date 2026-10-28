@@ -13,6 +13,8 @@ PLANS = {
     "trial": {"seats": 2, "ai_per_month": 150, "month_eur": 0, "year_eur": 0},
     "starter": {"seats": 2, "ai_per_month": 400, "month_eur": 29, "year_eur": 290},
     "pro": {"seats": 8, "ai_per_month": 2000, "month_eur": 59, "year_eur": 590},
+    # Pilot companies: free with no end date while the product is being built. Only an admin sets it.
+    "pilot": {"seats": 8, "ai_per_month": 2000, "month_eur": 0, "year_eur": 0},
 }
 
 PAID_OK = {"active", "trialing", "past_due"}
@@ -29,6 +31,8 @@ def trial_active(org: Organization) -> bool:
 
 def can_write(org: Organization) -> bool:
     """Paying (or in trial) organizations can create and edit. Others are read-only."""
+    if org.plan == "pilot":
+        return True
     if org.plan in ("starter", "pro") and org.billing_status in PAID_OK:
         return True
     return trial_active(org)

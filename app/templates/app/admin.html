@@ -1,0 +1,37 @@
+{% extends "app/base_app.html" %}
+{% block title %}{{ _('Admin') }} · {{ app_name }}{% endblock %}
+{% block main %}
+<h1 class="page">{{ _('Admin') }}</h1>
+<p class="lede">{{ _('Every company that has signed up. Pilot accounts are free with no end date; only you can turn them on.') }}</p>
+<div class="panel" style="overflow-x:auto">
+  <table class="list">
+    <thead><tr><th>{{ _('Company') }}</th><th>{{ _('Plan') }}</th><th>{{ _('Trips') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% set o = r.org %}
+      <tr>
+        <td><strong>{{ o.name or '—' }}</strong><br><span class="hint">{{ r.owner.email if r.owner else '—' }} · {{ _('1 person') if r.members == 1 else _('{n} people', n=r.members) }} · {{ o.created_at.strftime('%d/%m/%Y') }}</span></td>
+        <td>
+          {% if o.plan == 'pilot' %}<span class="tag ok">{{ _('Pilot company') }}</span>
+          {% elif o.plan == 'trial' %}{% if r.can_write %}{{ _('Free trial') }}<br><span class="hint">{{ _('{n} days left', n=r.days_left) }}</span>{% else %}<span class="tag warn">{{ _('Trial ended') }}</span>{% endif %}
+          {% else %}{{ _('Starter') if o.plan == 'starter' else _('Pro') }}<br><span class="hint">{{ o.billing_status }}</span>{% endif %}
+        </td>
+        <td>{{ r.trips }}</td>
+        <td style="text-align:right">
+          {% if o.plan == 'pilot' %}
+            <form method="post" action="/app/admin/{{ o.id }}/trial"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost" data-confirm="{{ _('End the pilot for {org}? They get a normal {n}-day free trial from today.', org=o.name or '—', n=settings.trial_days) }}">{{ _('End pilot') }}</button></form>
+          {% elif o.plan == 'trial' %}
+            <div class="row" style="justify-content:flex-end">
+              <form method="post" action="/app/admin/{{ o.id }}/pilot"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small primary">{{ _('Make pilot') }}</button></form>
+              {% if not r.can_write %}<form method="post" action="/app/admin/{{ o.id }}/trial"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost">{{ _('Restart trial') }}</button></form>{% endif %}
+            </div>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4">{{ _('No companies yet.') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="hint">{{ _('Trips counts real trips only, not the examples.') }}</p>
+{% endblock %}
