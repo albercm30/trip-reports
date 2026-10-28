@@ -71,7 +71,7 @@ def trip_page(trip_id: str, request: Request, db: Session = Depends(get_db), use
            "open_day": request.query_params.get("day"), "is_new": request.query_params.get("new") == "1",
            "ai_on": settings.ai_enabled, "REPORT_LANGS": REPORT_LANGS}
     if tab == "report":
-        ctx["R"] = build_report(trip, org, settings.name_for(org.report_lang))
+        ctx["R"] = build_report(trip, org, settings.name_for(trip.report_lang))
         ctx["checks"] = report_checks(trip)
         ctx["ready"] = not any(c[0] == "warn" for c in ctx["checks"])
         ctx["rorg"] = org
@@ -87,6 +87,9 @@ async def _apply_trip_form(request: Request, db: Session, trip: Trip) -> None:
     trip.title = str(f.get("title", trip.title))[:160]
     trip.location = str(f.get("location", trip.location))[:200]
     trip.guides = str(f.get("guides", trip.guides))[:200]
+    if "lang" in f:
+        lang = str(f.get("lang", ""))
+        trip.lang = lang if lang in REPORT_LANGS else ""
     if "guests" in f:
         trip.guests = _int(f.get("guests"), 0, 999)
     if "start_date" in f:
@@ -267,7 +270,7 @@ async def proofread_day(trip_id: str, day_id: str, request: Request, db: Session
     await _save_day_form(request, db, user, trip, day)
     if not ai_limiter.hit(user.org_id):
         return redirect(_day_url(trip, day), "Too many requests at once. Wait a minute and try again.")
-    r = drafting.proofread(db, user.org, user, day.narrative)
+    r = drafting.proofread(db, user.org, user, day.narrative, trip.report_lang)
     if r["engine"] == "ai" and r["text"] != day.narrative:
         day.narrative, day.approved = r["text"], False
         db.commit()
@@ -282,7 +285,7 @@ async def proofread_trip(trip_id: str, request: Request, db: Session = Depends(g
         return redirect(f"/app/trips/{trip.id}?tab=trip#closing", "Too many requests at once. Wait a minute and try again.")
     results = []
     for field in ("intro", "summary"):
-        r = drafting.proofread(db, user.org, user, getattr(trip, field))
+        r = drafting.proofread(db, user.org, user, getattr(trip, field), trip.report_lang)
         if r["engine"] == "ai":
             setattr(trip, field, r["text"])
         results.append(r)

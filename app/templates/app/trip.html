@@ -22,7 +22,13 @@
       <label class="field"><span>{{ _('First day') }}</span><input type="date" name="start_date" value="{{ trip.start_date.isoformat() if trip.start_date else '' }}"><small>{{ _('Day dates follow from this.') }}</small></label>
       <label class="field"><span>{{ _('Number of guests') }}</span><input type="number" name="guests" min="0" max="999" inputmode="numeric" value="{{ trip.guests if trip.guests is not none else '' }}"></label>
     </div>
-    <label class="field"><span>{{ _('Guide(s)') }}</span><input type="text" name="guides" value="{{ trip.guides }}" maxlength="200"></label>
+    <div class="grid2">
+      <label class="field"><span>{{ _('Guide(s)') }}</span><input type="text" name="guides" value="{{ trip.guides }}" maxlength="200"></label>
+      <label class="field"><span>{{ _('Report language') }}</span><select name="lang">
+        <option value="" {% if not trip.lang %}selected{% endif %}>{{ _('Company default ({language})', language=REPORT_LANGS.get(org.report_lang, org.report_lang)) }}</option>
+        {% for k, v in REPORT_LANGS.items() %}<option value="{{ k }}" {% if trip.lang == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select><small>{{ _('Drafts are written in this language, even if your notes are in another one.') }}</small></label>
+    </div>
   </div>
 
   <h2 class="sec" id="closing">{{ _('Opening and closing') }}</h2>
@@ -114,7 +120,7 @@
       <div class="row">
         <button class="btn primary" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/draft" data-busy="{{ _('Writing the day report…') }}" {% if d.narrative %}data-confirm="{{ _('Replace the current day report with a new draft?') }}"{% endif %}>{{ _('Redraft') if d.narrative else _('Draft day report') }}</button>
         {% if ai_on and d.narrative %}<button class="btn small" formaction="/app/trips/{{ trip.id }}/days/{{ d.id }}/proofread" data-busy="{{ _('Fixing spelling…') }}">{{ _('Fix spelling') }}</button>{% endif %}
-        <span class="hint">{{ _('Drafts use only your notes and species list.') }}{% if ai_on %} {{ _('Spelling and dictation mistakes are fixed; facts never change.') }}{% else %} {{ _('Edit them into your own words.') }}{% endif %}</span>
+        <span class="hint"><a href="/app/trips/{{ trip.id }}?tab=trip">{{ _('Written in {language}', language=REPORT_LANGS.get(trip.report_lang, trip.report_lang)) }}</a> · {{ _('Drafts use only your notes and species list.') }}{% if ai_on %} {{ _('Spelling and dictation mistakes are fixed; facts never change.') }}{% else %} {{ _('Edit them into your own words.') }}{% endif %}</span>
       </div>
       {% endif %}
       <label class="approve"><input type="checkbox" name="approved" value="1" {% if d.approved %}checked{% endif %}> {{ _('I\'ve checked this day and it\'s ready to send') }}</label>

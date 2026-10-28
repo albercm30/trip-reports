@@ -130,7 +130,7 @@ def build_tally(trip) -> list[TallyRow]:
 
 
 def build_report(trip, org, app_name: str) -> dict:
-    lang = org.report_lang if org.report_lang in L else "en"
+    lang = trip.report_lang if trip.report_lang in L else "en"
     t = L[lang]
     rows = build_tally(trip)
     groups: dict[str, list[TallyRow]] = {}

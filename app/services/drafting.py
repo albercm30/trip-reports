@@ -62,7 +62,7 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
     if _use_ai(db, org):
         try:
             known = "; ".join(sorted({f"{n} ({sci})" if sci else n for n, sci, _ in own})[:150])
-            data, i, o = ai.parse_species(raw, notes, org.report_lang, _context(trip, org), known)
+            data, i, o = ai.parse_species(raw, notes, trip.report_lang, _context(trip, org), known)
             raw_rows = data.get("species") if isinstance(data, dict) else data
             rows = sp.clean_ai_rows(data, raw + "\n" + notes)
             dropped = max(0, len(raw_rows or []) - len(rows)) if isinstance(raw_rows, list) else 0
@@ -72,7 +72,7 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
             error = e.code
             log.info("AI species parse failed (%s), using free parser", e.code)
     if rows is None:
-        rows = sp.parse_tally(raw, sp.Vocab(own), org.report_lang)
+        rows = sp.parse_tally(raw, sp.Vocab(own), trip.report_lang)
     rows = taxonomy.check_rows(rows)
     existing = {(s.sci or s.name).strip().lower(): s for s in day.sightings}
     pos = len(day.sightings)
@@ -81,7 +81,7 @@ def add_species_from_text(db: Session, org: Organization, user: User | None, tri
         group = r.get("group", "")
         if r.get("_class"):
             group = taxonomy.GROUP_BY_CLASS.get(r["_class"], group or "other")
-        group = group_label(group_key(group), org.report_lang) if group else ""
+        group = group_label(group_key(group), trip.report_lang) if group else ""
         key = (r["sci"] or r["name"]).strip().lower()
         prev = existing.get(key) or existing.get(r["name"].strip().lower())
         if prev:
@@ -107,7 +107,7 @@ def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day
     if _use_ai(db, org):
         try:
             text, i, o = ai.draft_day(n=n, date_s=day.date.isoformat() if day.date else "", place=day.place,
-                                      notes=day.notes, species_lines=species_lines(day), lang=org.report_lang,
+                                      notes=day.notes, species_lines=species_lines(day), lang=trip.report_lang,
                                       tone=org.tone, context=_context(trip, org))
             _record(db, org, user, "day", i, o)
             day.narrative, day.approved = text.strip(), False
@@ -117,7 +117,7 @@ def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day
             err = e.code
     else:
         err = None
-    day.narrative = freedraft.day_draft(n, day.place, day.notes, list(day.sightings), org.report_lang)
+    day.narrative = freedraft.day_draft(n, day.place, day.notes, list(day.sightings), trip.report_lang)
     day.approved = False
     db.commit()
     return {"engine": "free", "error": err}
@@ -131,7 +131,7 @@ def draft_intro(db: Session, org: Organization, user: User | None, trip: Trip) -
                                 for i, d in enumerate(trip.days, 1))
         try:
             d, i, o = ai.draft_intro(days_text=days_text, n_days=len(trip.days), n_species=len(rows),
-                                     guests=trip.guests, lang=org.report_lang, tone=org.tone,
+                                     guests=trip.guests, lang=trip.report_lang, tone=org.tone,
                                      context=_context(trip, org))
             _record(db, org, user, "intro", i, o)
             trip.intro, trip.summary = d["intro"].strip(), str(d.get("summary", "")).strip()
@@ -142,7 +142,7 @@ def draft_intro(db: Session, org: Organization, user: User | None, trip: Trip) -
     all_notes = "\n".join(d.notes or "" for d in trip.days)
     trip.intro, trip.summary = freedraft.intro_summary(trip.title, trip.location, len(trip.days),
                                                        [r.name for r in rows if r.star and not r.unsure],
-                                                       len(rows), freedraft.draft_lang(all_notes, org.report_lang))
+                                                       len(rows), freedraft.draft_lang(all_notes, trip.report_lang))
     db.commit()
     return {"engine": "free", "error": err}
 
@@ -160,14 +160,14 @@ def draft_season(db: Session, org: Organization, user: User | None, data: "ins.I
     return {"engine": "free", "text": ins.free_season_text(data, org), "error": None}
 
 
-def proofread(db: Session, org: Organization, user: User | None, text: str) -> dict:
+def proofread(db: Session, org: Organization, user: User | None, text: str, lang: str | None = None) -> dict:
     """Fix spelling, grammar and dictation errors in text the guide wrote. Needs AI."""
     if not text.strip():
         return {"text": text, "engine": "none", "error": None}
     if not _use_ai(db, org):
         return {"text": text, "engine": "none", "error": "unavailable"}
     try:
-        out, i, o = ai.proofread(text, org.report_lang)
+        out, i, o = ai.proofread(text, lang or org.report_lang)
         _record(db, org, user, "proofread", i, o)
         db.commit()
         return {"text": out, "engine": "ai", "error": None}

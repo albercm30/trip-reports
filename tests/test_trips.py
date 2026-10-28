@@ -343,3 +343,18 @@ def test_everything_in_spanish(client):
     assert "Informe creado con Informes de Viaje" in report and "Sierra de Andújar, Jaén, España" in report
     days = client.get(f"/app/trips/{tid}?tab=days").text
     assert 'href="/lang/en"' in days  # language switch in the app header
+
+
+def test_trip_report_language_overrides_company(owner):
+    from app.db import SessionLocal
+    from app.models import Trip
+    tid = new_trip(owner)
+    owner.post_form(f"/app/trips/{tid}", {"title": "Calderones", "lang": "es"})
+    with SessionLocal() as db:
+        t = db.get(Trip, tid)
+        assert t.lang == "es" and t.report_lang == "es" and t.org.report_lang == "en"
+    page = owner.get(f"/app/trips/{tid}?tab=trip").text
+    assert 'value="es" selected' in page
+    owner.post_form(f"/app/trips/{tid}", {"title": "Calderones", "lang": ""})
+    with SessionLocal() as db:
+        assert db.get(Trip, tid).report_lang == "en"

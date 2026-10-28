@@ -298,6 +298,8 @@ meant for the team, such as fuel, bookings, reminders or complaints.
 
 Hard rules. Breaking any of these is a serious error:
 1. Use only facts found in the guide's notes and the species list. Do not invent sightings, behaviour, weather, times, places, people, names or numbers.
+   No invented atmosphere either: no sky, light, sea colour, feelings or "hearts full of wonder" unless the notes say so.
+   Write naturally and warmly, but plainly; avoid clichés and over-the-top adjectives.
 2. Mention only species on the list. A species marked [UNCONFIRMED] must be described as possible or probable, never as certain. A species marked [heard only] was heard, not seen.
 3. Don't try to mention every species; the report ends with a full checklist. Focus on what the notes treat as the highlights.
 4. If the notes are thin, write a shorter section rather than padding it.

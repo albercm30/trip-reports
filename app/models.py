@@ -110,6 +110,7 @@ class Trip(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     guests: Mapped[int | None] = mapped_column(Integer, nullable=True)
     guides: Mapped[str] = mapped_column(String(200), default="")
+    lang: Mapped[str] = mapped_column(String(2), default="", server_default="")  # "" = the company's report language
     intro: Mapped[str] = mapped_column(Text, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
     share_token: Mapped[str | None] = mapped_column(String(48), unique=True, nullable=True)
@@ -119,6 +120,11 @@ class Trip(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     org: Mapped[Organization] = relationship(back_populates="trips")
+
+    @property
+    def report_lang(self) -> str:
+        return self.lang or (self.org.report_lang if self.org else "en") or "en"
+
     days: Mapped[list[Day]] = relationship(back_populates="trip", cascade="all, delete-orphan",
                                            order_by="Day.position")
 
