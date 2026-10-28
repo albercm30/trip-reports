@@ -94,3 +94,10 @@ def test_intro_summary():
     intro, summary = intro_summary("Lynx Weekend", "Andújar", 3, ["Iberian Lynx"], 15, "en")
     assert intro.startswith("Lynx Weekend: 3 days in Andújar.")
     assert "15 species" in summary and "Iberian lynx" in summary
+
+
+def test_quantity_words_do_not_make_species_uncertain():
+    rows = {r["name"]: r for r in parse_tally("muchas pardelas cenicientas, some warblers, varios delfines mulares", lang="es")}
+    assert rows["Pardela cenicienta"]["sure"] and rows["Pardela cenicienta"]["sci"] == "Calonectris borealis"
+    assert rows["Delfín mular"]["sure"]
+    assert not rows["Warbler"]["sure"]  # still vague: which warbler?

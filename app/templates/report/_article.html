@@ -13,7 +13,7 @@
 
   {% if trip.days %}
   <div class="r-nums">
-    <div><b>{{ trip.days|length }}</b>{{ L.days }}</div>
+    <div><b>{{ trip.days|length }}</b>{{ L.day_one if trip.days|length == 1 else L.days }}</div>
     <div><b>{{ R.species_count }}</b>{{ L.total }}</div>
     {% if trip.guests %}<div><b>{{ trip.guests }}</b>{{ L.guests }}</div>{% endif %}
   </div>

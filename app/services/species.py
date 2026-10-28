@@ -201,8 +201,12 @@ class Vocab:
 
 
 # ------------------------------------------------------------------ parsing
-VAGUE = re.compile(r"\b(some|several|few|a few|lots of|loads of|many|unidentified|unknown|sp|spp|kind of|sort of|"
-                   r"algun[oa]s?|vari[oa]s|much[oa]s|sin identificar|tipo de|especie de)\b", re.I)
+# Doubt about WHICH species ("some kind of warbler", "sp."): the row is flagged and never guessed.
+VAGUE = re.compile(r"\b(unidentified|unknown|sp|spp|kind of|sort of|some kind of|sin identificar|tipo de|especie de|"
+                   r"alg[uú]n tipo de)\b", re.I)
+# Words about HOW MANY ("lots of", "muchas"): dropped, they don't make the species uncertain.
+QUANTITY = re.compile(r"\b(some|several|few|a few|lots of|loads of|many|plenty of|algun[oa]s?|vari[oa]s|much[oa]s|"
+                      r"un mont[oó]n de|bastantes)\b", re.I)
 DOUBT = re.compile(r"(\?|\b(probably|probable|prob|possible|poss|maybe|perhaps|likely|i think|not sure|"
                    r"posible|probablemente|quiz[aá]s?|tal vez|creo que|no seguro)\b)", re.I)
 HEARD = re.compile(r"\b(heard( only)?|calling|call(ed|ing)?|singing|o[ií]d[oa]s?|o[ií]mos|escuchad[oa]s?|"
@@ -291,6 +295,7 @@ def parse_entry(text: str, vocab: Vocab | None = None) -> dict | None:
     s = DOUBT.sub(" ", s)
     s = HEARD.sub(" ", s)
     s = VAGUE.sub(" ", s)
+    s = QUANTITY.sub(" ", s)
     s = FILLER.sub(" ", s)
     s = re.sub(r"[^\w\s'’-]", " ", s)
     s = " ".join(s.split()).strip(" -'")
@@ -336,7 +341,7 @@ def _segment(part: str, vocab: Vocab) -> list[str]:
     noise = {"kind", "sort", "type", "tipo", "especie", "sp", "spp", "possibly", "maybe"}
     words = [(i, t) for i, t in enumerate(toks) if not ATTR.match(t) and not FILLER.fullmatch(t)
              and t.lower() not in noise
-             and not VAGUE.fullmatch(t) and not DOUBT.fullmatch(t)]
+             and not VAGUE.fullmatch(t) and not QUANTITY.fullmatch(t) and not DOUBT.fullmatch(t)]
     if len(words) < 3:
         return [part]
     whole, score = vocab.match(" ".join(t for _, t in words))
