@@ -216,7 +216,8 @@ VAGUE = re.compile(r"\b(unidentified|unknown|sp|spp|kind of|sort of|some kind of
 # Words about HOW MANY ("lots of", "muchas"): dropped, they don't make the species uncertain.
 QUANTITY = re.compile(r"\b(some|several|few|a few|lots of|loads of|lots|loads|heaps|many|plenty of|plenty|"
                       r"algun[oa]s?|vari[oa]s|much[oa]s|much[ií]sim[oa]s|un mont[oó]n de|bastantes|un grupo de|"
-                      r"grupo de|a group of|a pod of|pod of)\b", re.I)
+                      r"grupo de|a group of|a pod of|pod of|m[aá]s de|more than|over|about|around|approx\w*|"
+                      r"aproximadamente|cerca de|casi|almost|unos|unas)\b", re.I)
 DOUBT = re.compile(r"(\?|\b(probably|probable|prob|possible|poss|maybe|perhaps|likely|i think|not sure|"
                    r"posible|probablemente|quiz[aá]s?|tal vez|creo que|no seguro)\b)", re.I)
 HEARD = re.compile(r"\b(heard( only)?|calling|call(ed|ing)?|singing|o[ií]d[oa]s?|o[ií]mos|escuchad[oa]s?|"

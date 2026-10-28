@@ -305,7 +305,7 @@
             (j.draft ? "<details><summary>📝</summary>" + esc(j.draft.text) + "</details>" : "");
         })
         .catch(function () { tr.querySelector(".c-ai").textContent = "⚠️"; results.push({ id: id, error: "request" }); })
-        .then(function () { i++; setTimeout(next, 4000); });
+        .then(function () { i++; setTimeout(next, 10000); });
     }
     next();
   });

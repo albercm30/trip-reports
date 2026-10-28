@@ -265,3 +265,23 @@ def test_stored_flags_show_until_the_guide_edits(owner, monkeypatch):
     assert "with friends" in page and "Check before approving" in page
     owner.post_form(f"/app/trips/{tid}/days/{did}", {"place": "", "notes": "quiet morning", "narrative": "A quiet morning."})
     assert "Check before approving" not in owner.get(f"/app/trips/{tid}?tab=days&day={did}").text
+
+
+def test_round7_fixes():
+    # the AI called "delfines comunes, muchísimos, más de 100" bottlenose; the guide's words win
+    t = "Más tarde delfines comunes, muchísimos, más de 100, saltando. No vimos delfines mulares hoy."
+    rows = verify.check_species_rows(sp.clean_ai_rows([{"name": "Delfín mular", "sci": "Tursiops truncatus", "count": 100,
+                                                        "source": "delfines comunes, muchísimos, más de 100"}], t), t, lang="es")[0]
+    assert [(r["sci"], r["count"]) for r in rows] == [("Delphinus delphis", 100)]
+    # a misspelt scientific name snaps to the real one
+    t = "unos quince delfines comunes"
+    rows = verify.check_species_rows(sp.clean_ai_rows([{"name": "Delfín común", "sci": "Delphinus delphinus", "count": 15,
+                                                        "source": t}], t), t, lang="es")[0]
+    assert rows[0]["sci"] == "Delphinus delphis"
+    # "No otters were present today" is fine when the notes say so
+    sp_ = [S(name="Griffon Vulture", sci="Gyps fulvus", count=40, sure=True, heard=False, star=False)]
+    assert verify.check_text("We saw 40 Griffon Vultures. No otters were present today.", lang="en", species=sp_,
+                             notes="40 grifons, no otters today") == []
+    # Spanish writes common names in lower case
+    assert verify.tidy("Vimos catorce Calderones Grises y un Zifio De Cuvier.", "es") == \
+        "Vimos catorce calderones grises y un zifio de Cuvier."

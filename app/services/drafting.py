@@ -193,7 +193,7 @@ def draft_day(db: Session, org: Organization, user: User | None, trip: Trip, day
             out = checked_draft(write, check, day.notes or "", lines, trip.report_lang,
                                 record=lambda k, i, o: _record(db, org, user, k, i, o),
                                 species=list(day.sightings), allowed=allowed)
-            day.narrative = verify.tidy(out["result"])
+            day.narrative = verify.tidy(out["result"], trip.report_lang)
             day.ai_flags = json.dumps([p for p in out["problems"] if p["kind"] in ("claim", "unchecked")],
                                       ensure_ascii=False)
             day.approved = False
@@ -238,7 +238,7 @@ def draft_intro(db: Session, org: Organization, user: User | None, trip: Trip) -
             out = checked_draft(write, check, all_notes + "\n\n" + days_text, sp_txt, trip.report_lang,
                                 record=lambda k, i, o: _record(db, org, user, k, i, o),
                                 as_text=lambda pair: f"{pair[0]}\n\n{pair[1]}")
-            trip.intro, trip.summary = (verify.tidy(x) for x in out["result"])
+            trip.intro, trip.summary = (verify.tidy(x, trip.report_lang) for x in out["result"])
             db.commit()
             return {"engine": "ai", "error": None}
         except ai.AIError as e:

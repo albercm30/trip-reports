@@ -100,11 +100,12 @@ class _Next(Exception):
         self.reason = reason
 
 
-def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effort: str = "low") -> tuple[str, int, int]:
+def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effort: str = "low",
+                patience: float = 8) -> tuple[str, int, int]:
     reasoning = "gpt-oss" in model or "qwen3" in model
     body = {"model": model, "temperature": 0.2 if not json_mode else 0,
             # reasoning models spend part of the budget thinking before they answer
-            "max_tokens": max_tokens + ((1500 if effort == "medium" else 800) if reasoning else 0),
+            "max_tokens": max_tokens + ((1000 if effort == "medium" else 600) if reasoning else 0),
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
@@ -112,7 +113,8 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
         body.update(reasoning_effort=effort, include_reasoning=False)
     headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
     url = f"{settings.llm_base_url}/chat/completions"
-    for attempt in range(3):
+    waited = 0.0
+    for attempt in range(4):
         try:
             r = httpx.post(url, json=body, timeout=45, headers=headers)
         except httpx.HTTPError as e:
@@ -120,9 +122,12 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
             raise _Next("network") from e
         low = r.text[:600].lower()
         if r.status_code == 429:
+            # free plans allow a few thousand tokens a minute per model: waiting a little for the best
+            # model gives better reports than switching to a weaker one straight away
             wait = _retry_after(r)
-            if attempt == 0 and wait <= 8:
-                time.sleep(wait)
+            if waited + wait <= patience:
+                time.sleep(wait + 0.5)
+                waited += wait + 0.5
                 continue
             raise _Next("rate_limited")
         if r.status_code in (400, 404, 422) and ("model" in low and any(
@@ -165,17 +170,20 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
 
 
 def _retry_after(r: httpx.Response) -> float:
-    try:
-        return float(r.headers.get("retry-after", "30"))
-    except ValueError:
-        return 30.0
+    for h in ("retry-after", "x-ratelimit-reset-tokens", "x-ratelimit-reset-requests"):
+        v = (r.headers.get(h) or "").strip()
+        m = re.fullmatch(r"(?:(\d+)m)?([\d.]+)(ms|s)?", v)
+        if m:
+            secs = float(m.group(2)) / (1000 if m.group(3) == "ms" else 1) + 60 * int(m.group(1) or 0)
+            return max(0.5, min(secs, 60.0))
+    return 20.0
 
 
 def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool, effort: str = "low") -> tuple[str, int, int]:
     reasons = []
-    for model in model_chain():
-        try:
-            result = _call_model(model, prompt, max_tokens, json_mode, effort)
+    for n, model in enumerate(model_chain()):
+        try:  # be patient with the best model (first in the chain), quick with the fallbacks
+            result = _call_model(model, prompt, max_tokens, json_mode, effort, patience=30 if n == 0 else 6)
             USED.append(model)
             return result
         except _Next as e:
@@ -406,7 +414,7 @@ REPORT:
 def unsupported_claims(text: str, notes: str, species_lines: str) -> tuple[list[dict], int, int]:
     """Details in a draft that the notes don't support, as quoted by a second, checking model call.
     Quotes that aren't really in the draft are ignored, so the checker can't invent problems either."""
-    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=700, json_mode=True, effort="medium")
+    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=600, json_mode=True, effort="low")
     d = _json(out)
     items = d.get("unsupported", []) if isinstance(d, dict) else d if isinstance(d, list) else []
     clean, low = [], " ".join(text.lower().split())

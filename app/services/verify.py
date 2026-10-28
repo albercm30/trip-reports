@@ -177,6 +177,13 @@ def check_species_rows(rows: list[dict], text: str, vocab: Vocab | None = None, 
                 if not DOUBT.search(src) and "qmark" not in after:
                     r["sure"] = True
         out.append(r)
+    # a slightly misspelt scientific name ("Delphinus delphinus") is snapped to the real one
+    for r in out:
+        if r.get("sci") and norm(r["sci"]) not in vocab.by_key:
+            e, sc = vocab.match(r["sci"])
+            if e and sc >= 0.9 and len(norm(r["sci"]).split()) == len(norm(e["sci"]).split()):
+                changes.append(f"{r['name']}: scientific name {r['sci']} -> {e['sci']}")
+                r["sci"] = e["sci"]
     # one name per species, the standard one, so reports and season statistics stay consistent
     if lang in ("en", "es"):
         for r in out:
@@ -336,9 +343,9 @@ NEG_WORDS = re.compile(r"\b(no|not|never|without|didn'?t|none|sin|ni|nunca|ningu
 
 
 def _only_negated(text: str, e: dict) -> bool:
-    keys = [k for k in (sing_all(norm(e.get("en", ""))), sing_all(norm(e.get("es", ""))), sing_all(norm(e.get("sci", "")))) if k]
+    """Every sentence that names this species says it was NOT seen ("No otters were present today")."""
     hits = [sent for sent in re.split(r"(?<=[.!?;])\s+", text)
-            if any(re.search(r"\b" + re.escape(k) + r"\b", sing_all(norm(sent))) for k in keys)]
+            if any(norm(x["sci"]) == norm(e["sci"]) for x in mentioned_species(sent))]
     return bool(hits) and all(NEG_WORDS.search(h) for h in hits)
 
 
@@ -548,7 +555,38 @@ def feedback(problems: list[dict], lang: str) -> str:
     return "\n".join(f"- {x}" for x in lines)
 
 
-def tidy(text: str) -> str:
+def spanish_case(text: str) -> str:
+    """Spanish writes common names in lower case: "catorce Calderones Grises" -> "catorce calderones grises".
+    Proper nouns inside a name stay ("delfín moteado del Atlántico", "zifio de Cuvier")."""
+    import unicodedata
+    text = unicodedata.normalize("NFC", text or "")
+    chars = list(text)
+    flat = strip_accents(text)
+    if len(flat) != len(text):
+        return text
+    for e in default_vocab().entries:
+        words = strip_accents(e.get("es") or "").split()
+        if not words or not words[0][:1].isupper():
+            continue
+        pat = r"\b" + r"\s+".join(re.escape(w) + r"(?:s|es)?" for w in words) + r"\b"
+        for m in re.finditer(pat, flat, flags=re.I):
+            before = flat[:m.start()].rstrip()
+            sentence_start = not before or before[-1] in ".!?\n"
+            pos = m.start()
+            for k, canon in enumerate(words):
+                while pos < m.end() and flat[pos].isspace():
+                    pos += 1
+                proper = k > 0 and canon[:1].isupper()
+                if not proper and not (k == 0 and sentence_start):
+                    chars[pos] = chars[pos].lower()
+                while pos < m.end() and not flat[pos].isspace():
+                    if pos > 0 and not flat[pos - 1].isspace() and not proper:
+                        chars[pos] = chars[pos].lower()
+                    pos += 1
+    return "".join(chars)
+
+
+def tidy(text: str, lang: str = "") -> str:
     """Last safety net for prose: drop markdown emphasis, headings and a trailing checklist."""
     lines = (text or "").replace("\r", "").split("\n")
     out = []
@@ -558,7 +596,8 @@ def tidy(text: str) -> str:
         if re.fullmatch(r"\s*\*\*[^*]+\*\*:?\s*", ln):
             continue  # a bold heading line on its own
         out.append(ln.replace("**", "").replace("__", ""))
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+    return spanish_case(text) if lang == "es" else text
 
 
 def drop_false_claims(claims: list[dict], species: list, notes: str, lang: str,
@@ -570,6 +609,9 @@ def drop_false_claims(claims: list[dict], species: list, notes: str, lang: str,
     listed = {norm(getattr(s, "sci", "") or "") for s in species} - {""}
     for c in claims:
         q = c.get("what") or c.get("quote") or ""
+        if re.fullmatch(r"(?:we\s+)?(probably|possibly|perhaps|maybe|likely|probablemente|posiblemente|quiz[aá]s?)"
+                        r"(\s+(saw|seen|spotted|vimos|avistamos))?", q.strip().lower()):
+            continue
         named = [e for e in mentioned_species(q) if norm(e["sci"]) in listed] or \
             [s for s in species if s.name and sing_all(norm(s.name)) in sing_all(norm(q))]
         if named and len(q.split()) <= 7 and not check_text(q.rstrip(" .") + ".", lang=lang, species=species, notes=notes,
