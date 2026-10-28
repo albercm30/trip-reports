@@ -51,7 +51,7 @@ def test_falls_back_when_a_model_is_gone_or_busy(groq, monkeypatch):
     calls = groq(answers)
     text, _, _ = ai.complete("x", json_mode=True)
     assert json.loads(text) == {"species": []}
-    assert "some/new-model" in ai._gone and "some/new-model" not in ai.model_chain()
+    assert "groq:some/new-model" in ai._gone and ("groq", "some/new-model") not in ai.model_chain()
     assert calls[-1]["model"] == "openai/gpt-oss-20b"
 
 
@@ -102,3 +102,23 @@ def test_day_prompt_asks_for_one_language_and_a_summary():
     p = ai.day_prompt(n=1, date_s="", place="", notes="vimos calderones", species_lines="- Short-finned Pilot Whale",
                       lang="en", tone="warm", context="")
     assert "never mix languages" in p and "not a transcript" in p
+
+
+def test_each_job_has_its_own_model_order_and_cloudflare_is_overflow(groq, monkeypatch):
+    monkeypatch.setattr(settings, "llm_model", "openai/gpt-oss-120b")
+    monkeypatch.setattr(settings, "cf_account_id", "acc123")
+    monkeypatch.setattr(settings, "cf_api_token", "cf_token")
+    assert ai.model_chain("write")[:2] == [("groq", "openai/gpt-oss-120b"), ("cloudflare", "@cf/openai/gpt-oss-120b")]
+    assert ai.model_chain("check")[0] == ("groq", "qwen/qwen3.8-27b")  # a different model checks the writer
+    assert ai.model_chain("light")[0] == ("groq", "openai/gpt-oss-20b")
+    urls = []
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        urls.append((url, json["model"], headers["Authorization"]))
+        if "groq.com" in url:
+            return httpx.Response(429, json={"error": {"message": "Rate limit reached"}}, headers={"retry-after": "120"})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "hola"}}]})
+    monkeypatch.setattr(ai.httpx, "post", fake_post)
+    assert ai.complete("x")[0] == "hola"
+    assert urls[-1] == ("https://api.cloudflare.com/client/v4/accounts/acc123/ai/v1/chat/completions",
+                        "@cf/openai/gpt-oss-120b", "Bearer cf_token")

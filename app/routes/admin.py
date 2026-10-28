@@ -38,7 +38,7 @@ def admin_page(request: Request, db: Session = Depends(get_db), user: User = Dep
     rows = [{"org": o, "owner": owners.get(o.id), "members": members.get(o.id, 0), "trips": trips.get(o.id, 0),
              "can_write": plans.can_write(o), "days_left": plans.trial_days_left(o)} for o in orgs]
     checked = ai.check() if request.query_params.get("check_ai") else None
-    return render(request, "app/admin.html", {"rows": rows, "nav": "admin", "ai_chain": ai.model_chain(),
+    return render(request, "app/admin.html", {"rows": rows, "nav": "admin", "ai_chain": [f"{p}: {m}" for p, m in ai.model_chain("write")],
                                               "ai_checked": checked}, user=user)
 
 

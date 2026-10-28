@@ -71,25 +71,61 @@ def _anthropic(prompt: str, fast: bool, max_tokens: int) -> tuple[str, int, int]
 # Free providers retire models often (Groq dropped Llama 3.3 70B from its free tier in August 2026).
 # So the app tries a chain of models: the configured ones first, then current Groq models, skipping any
 # known to be retired or that answered "model not found" since the server started.
-GROQ_CHAIN = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+GROQ_120, GROQ_20, GROQ_QWEN = "openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"
+CF_120, CF_20 = "@cf/openai/gpt-oss-120b", "@cf/openai/gpt-oss-20b"
 RETIRED = {"llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b", "qwen/qwen3.6-27b",
            "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct",
            "moonshotai/kimi-k2-instruct", "moonshotai/kimi-k2-instruct-0905", "gemma2-9b-it",
            "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"}
 _gone: set[str] = set()
-USED: list[str] = []      # which model answered each call (for the Admin accuracy page)
-SKIPPED: list[str] = []   # models that couldn't answer, and why
+USED: list[str] = []      # which provider:model answered each call (for the Admin accuracy page)
+SKIPPED: list[str] = []   # those that couldn't answer, and why
 THINK = re.compile(r"<think>.*?</think>", re.S | re.I)
 
 
-def model_chain() -> list[str]:
-    configured = [m.strip() for m in (settings.llm_model or "").split(",") if m.strip()]
-    extra = GROQ_CHAIN if "groq.com" in settings.llm_base_url else []
-    chain = []
-    for m in configured + extra:
-        if m not in chain and m not in RETIRED and m not in _gone:
-            chain.append(m)
-    return chain
+def _providers() -> dict[str, dict]:
+    out = {}
+    if settings.llm_api_key:
+        name = "groq" if "groq.com" in settings.llm_base_url else "llm"
+        out[name] = {"base": settings.llm_base_url, "key": settings.llm_api_key}
+    if settings.cf_account_id and settings.cf_api_token:
+        out["cloudflare"] = {"base": f"https://api.cloudflare.com/client/v4/accounts/{settings.cf_account_id}/ai/v1",
+                             "key": settings.cf_api_token}
+    return out
+
+
+# Free plans give each model its own small per-minute allowance, so each kind of job gets its own
+# order of models: the writer and the fact-checker don't compete for the same allowance, the checker is a
+# different model from the writer (it doesn't share its blind spots), and Cloudflare runs the same
+# gpt-oss-120b as a free overflow when Groq's allowance is used up.
+ROLES = {
+    "read": [("groq", GROQ_120), ("cloudflare", CF_120), ("groq", GROQ_20), ("groq", GROQ_QWEN)],
+    "write": [("groq", GROQ_120), ("cloudflare", CF_120), ("groq", GROQ_20), ("cloudflare", CF_20), ("groq", GROQ_QWEN)],
+    "check": [("groq", GROQ_QWEN), ("cloudflare", CF_120), ("groq", GROQ_20), ("groq", GROQ_120)],
+    "light": [("groq", GROQ_20), ("groq", GROQ_QWEN), ("cloudflare", CF_20), ("groq", GROQ_120)],
+}
+
+
+def model_chain(role: str = "write") -> list[tuple[str, str]]:
+    """(provider, model) pairs to try, in order, for a kind of job."""
+    provs = _providers()
+    chain: list[tuple[str, str]] = []
+    if "llm" in provs:  # another OpenAI-compatible provider: just the configured models
+        chain += [("llm", m.strip()) for m in (settings.llm_model or "").split(",") if m.strip()]
+    if "groq" in provs:
+        configured = [m.strip() for m in (settings.llm_model or "").split(",") if m.strip()]
+        for m in configured:
+            if m not in (GROQ_120, GROQ_20, GROQ_QWEN):
+                chain.append(("groq", m))  # an extra model the owner chose, tried first
+    chain += [(p, m) for p, m in ROLES.get(role, ROLES["write"]) if p in provs]
+    seen, out = set(), []
+    for p, m in chain:
+        label = f"{p}:{m}"
+        if label in seen or m in RETIRED or label in _gone:
+            continue
+        seen.add(label)
+        out.append((p, m))
+    return out
 
 
 class _Next(Exception):
@@ -101,7 +137,7 @@ class _Next(Exception):
 
 
 def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effort: str = "low",
-                patience: float = 8) -> tuple[str, int, int]:
+                patience: float = 8, provider: str = "groq") -> tuple[str, int, int]:
     reasoning = "gpt-oss" in model or "qwen3" in model
     body = {"model": model, "temperature": 0.2 if not json_mode else 0,
             # reasoning models spend part of the budget thinking before they answer
@@ -111,8 +147,10 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
         body["response_format"] = {"type": "json_object"}
     if "gpt-oss" in model:
         body.update(reasoning_effort=effort, include_reasoning=False)
-    headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
-    url = f"{settings.llm_base_url}/chat/completions"
+    prov = _providers().get(provider) or {"base": settings.llm_base_url, "key": settings.llm_api_key}
+    headers = {"Authorization": f"Bearer {prov['key']}"}
+    url = f"{prov['base']}/chat/completions"
+    label = f"{provider}:{model}"
     waited = 0.0
     for attempt in range(4):
         try:
@@ -133,7 +171,7 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
         if r.status_code in (400, 404, 422) and ("model" in low and any(
                 w in low for w in ("not found", "decommission", "does not exist", "not exist", "deprecat", "no access"))):
             log.warning("AI model %s is not available (%s); skipping it from now on", model, r.text[:200])
-            _gone.add(model)
+            _gone.add(label)
             raise _Next("model_gone")
         if r.status_code == 400 and "response_format" in body and ("response_format" in low or "json" in low):
             body.pop("response_format")  # provider or model without JSON mode
@@ -143,8 +181,8 @@ def _call_model(model: str, prompt: str, max_tokens: int, json_mode: bool, effor
             body.pop("include_reasoning", None)
             continue
         if r.status_code in (401, 403):
-            log.error("The AI key was rejected (%s): %s", r.status_code, r.text[:200])
-            raise AIError("unavailable")
+            log.error("The %s key was rejected (%s): %s", provider, r.status_code, r.text[:200])
+            raise _Next("key_rejected")
         if r.status_code == 413 or (r.status_code == 400 and ("too long" in low or "context" in low or "tokens" in low)):
             log.warning("AI request too long for %s: %s", model, r.text[:200])
             raise _Next("too_long")
@@ -179,16 +217,24 @@ def _retry_after(r: httpx.Response) -> float:
     return 20.0
 
 
-def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool, effort: str = "low") -> tuple[str, int, int]:
+def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool, effort: str = "low",
+                       role: str = "write") -> tuple[str, int, int]:
     reasons = []
-    for n, model in enumerate(model_chain()):
-        try:  # be patient with the best model (first in the chain), quick with the fallbacks
-            result = _call_model(model, prompt, max_tokens, json_mode, effort, patience=30 if n == 0 else 6)
-            USED.append(model)
+    first_patience = {"write": 30, "read": 30, "check": 15, "light": 5}.get(role, 20)
+    bad_keys: set[str] = set()
+    for n, (provider, model) in enumerate(model_chain(role)):
+        if provider in bad_keys:
+            continue
+        try:  # patient with the preferred model, quick with the fallbacks
+            result = _call_model(model, prompt, max_tokens, json_mode, effort,
+                                 patience=first_patience if n == 0 else 6, provider=provider)
+            USED.append(f"{provider}:{model}")
             return result
         except _Next as e:
             reasons.append(e.reason)
-            SKIPPED.append(f"{model}: {e.reason}")
+            SKIPPED.append(f"{provider}:{model}: {e.reason}")
+            if e.reason == "key_rejected":
+                bad_keys.add(provider)  # same key for every model of this provider
     log.warning("No AI model could answer: %s", reasons or "no models configured")
     if reasons and all(r == "rate_limited" for r in reasons):
         raise AIError("rate_limited")
@@ -198,7 +244,7 @@ def _openai_compatible(prompt: str, max_tokens: int, json_mode: bool, effort: st
 
 
 def check() -> list[dict]:
-    """Ask each model in the chain for a tiny answer. For the admin page."""
+    """Ask every provider:model the app may use for a tiny answer. For the admin page."""
     out = []
     if settings.ai_provider == "anthropic":
         try:
@@ -206,27 +252,27 @@ def check() -> list[dict]:
             return [{"model": settings.anthropic_fast_model, "ok": True, "detail": ""}]
         except AIError as e:
             return [{"model": settings.anthropic_fast_model, "ok": False, "detail": e.code}]
-    if not settings.llm_api_key:
-        return []
-    for model in model_chain():
+    seen = []
+    for role in ("write", "check", "light", "read"):
+        for pm in model_chain(role):
+            if pm not in seen:
+                seen.append(pm)
+    for provider, model in seen:
         try:
-            text, _, _ = _call_model(model, 'Reply with only the JSON {"ok": true}.', 50, True)
-            out.append({"model": model, "ok": True, "detail": text[:60]})
+            text, _, _ = _call_model(model, 'Reply with only the JSON {"ok": true}.', 50, True, provider=provider)
+            out.append({"model": f"{provider}: {model}", "ok": True, "detail": text[:60]})
         except _Next as e:
-            out.append({"model": model, "ok": False, "detail": e.reason})
-        except AIError as e:
-            out.append({"model": model, "ok": False, "detail": "key_rejected" if e.code == "unavailable" else e.code})
-            break
+            out.append({"model": f"{provider}: {model}", "ok": False, "detail": e.reason})
     return out
 
 
 def complete(prompt: str, *, fast: bool = False, max_tokens: int = 1200, json_mode: bool = False,
-             effort: str = "low") -> tuple[str, int, int]:
+             effort: str = "low", role: str = "write") -> tuple[str, int, int]:
     """Returns (text, input_tokens, output_tokens). Raises AIError."""
     if settings.ai_provider == "anthropic":
         text, i, o = _anthropic(prompt, fast, max_tokens)
     elif settings.ai_provider == "openai":
-        text, i, o = _openai_compatible(prompt, max_tokens, json_mode, effort)
+        text, i, o = _openai_compatible(prompt, max_tokens, json_mode, effort, role)
     else:
         raise AIError("unavailable")
     if not text:
@@ -298,7 +344,7 @@ NOTES:
 
 
 def parse_species(tally: str, notes: str, lang: str, context: str, known: str = "") -> tuple[object, int, int]:
-    text, i, o = complete(species_prompt(tally, notes, lang, context, known), max_tokens=2500, json_mode=True)
+    text, i, o = complete(species_prompt(tally, notes, lang, context, known), max_tokens=2500, json_mode=True, role="read")
     return _json(text), i, o
 
 
@@ -414,7 +460,8 @@ REPORT:
 def unsupported_claims(text: str, notes: str, species_lines: str) -> tuple[list[dict], int, int]:
     """Details in a draft that the notes don't support, as quoted by a second, checking model call.
     Quotes that aren't really in the draft are ignored, so the checker can't invent problems either."""
-    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=600, json_mode=True, effort="low")
+    out, i, o = complete(claims_prompt(text, notes, species_lines), max_tokens=600, json_mode=True, effort="low",
+                         role="check")
     d = _json(out)
     items = d.get("unsupported", []) if isinstance(d, dict) else d if isinstance(d, list) else []
     clean, low = [], " ".join(text.lower().split())
@@ -485,7 +532,7 @@ Text:
 
 
 def proofread(text: str, lang: str) -> tuple[str, int, int]:
-    out, i, o = complete(proofread_prompt(text, lang), max_tokens=2500)
+    out, i, o = complete(proofread_prompt(text, lang), max_tokens=2500, role="light")
     out = out.strip().strip('"').strip()
     # a proofread that changes length a lot is not a proofread: refuse it
     if not out or not (0.6 * len(text) <= len(out) <= 1.4 * len(text) + 40):

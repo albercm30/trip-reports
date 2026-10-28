@@ -33,6 +33,10 @@ services:
         sync: false            # free AI: a Groq key from console.groq.com (optional)
       - key: LLM_MODEL
         value: openai/gpt-oss-120b   # the app also falls back to other current models by itself
+      - key: CF_ACCOUNT_ID
+        sync: false            # optional, free: Cloudflare Workers AI account id (overflow for gpt-oss-120b)
+      - key: CF_API_TOKEN
+        sync: false            # optional, free: Cloudflare API token with "Workers AI" permission
       - key: ANTHROPIC_API_KEY
         sync: false            # optional, paid: Claude instead of Groq
       - key: SUPPORT_EMAIL

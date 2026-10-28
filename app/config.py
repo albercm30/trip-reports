@@ -69,7 +69,9 @@ class Settings:
     smtp_password: str = ""
     mail_from: str = ""
     mail_from_name: str = ""
-    brevo_api_key: str = ""  # Brevo's HTTP API: works where SMTP ports are blocked (Render's free tier)
+    brevo_api_key: str = ""
+    cf_account_id: str = ""  # Cloudflare Workers AI (free 10,000 neurons a day): same gpt-oss-120b as overflow
+    cf_api_token: str = ""  # Brevo's HTTP API: works where SMTP ports are blocked (Render's free tier)
 
     # Species name checks against the GBIF Backbone Taxonomy (CC BY 4.0)
     gbif_check: bool = True
@@ -90,11 +92,13 @@ class Settings:
 
     @property
     def ai_enabled(self) -> bool:
-        return bool(self.anthropic_api_key or self.llm_api_key)
+        return bool(self.anthropic_api_key or self.llm_api_key or (self.cf_account_id and self.cf_api_token))
 
     @property
     def ai_provider(self) -> str:
-        return "anthropic" if self.anthropic_api_key else ("openai" if self.llm_api_key else "")
+        if self.anthropic_api_key:
+            return "anthropic"
+        return "openai" if (self.llm_api_key or (self.cf_account_id and self.cf_api_token)) else ""
 
     @property
     def billing_enabled(self) -> bool:
@@ -158,6 +162,8 @@ def load_settings() -> Settings:
         mail_from=_env("MAIL_FROM"),
         mail_from_name=_env("MAIL_FROM_NAME"),
         brevo_api_key=_env("BREVO_API_KEY"),
+        cf_account_id=_env("CF_ACCOUNT_ID"),
+        cf_api_token=_env("CF_API_TOKEN"),
         gbif_check=_bool("GBIF_CHECK", True),
         support_email=_env("SUPPORT_EMAIL"),
         legal_name=_env("LEGAL_NAME"),
