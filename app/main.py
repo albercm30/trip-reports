@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("tripreports")
 
 CSP = ("default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-       "font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; "
+       "font-src 'self' https://fonts.gstatic.com; media-src 'self' blob:; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; "
        "base-uri 'self'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com")
 
 
@@ -38,15 +38,16 @@ def create_app() -> FastAPI:
         h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         h.setdefault("X-Frame-Options", "DENY")
         h.setdefault("Content-Security-Policy", CSP)
-        h.setdefault("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)")
+        h.setdefault("Permissions-Policy", "camera=(), geolocation=(self), microphone=(self)")
         if settings.is_production:
             h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
 
-    from .routes import account, admin, app_pages, auth, billing, public, reports, settings_pages, trips
+    from .routes import account, admin, app_pages, auth, billing, guests, public, reports, settings_pages, trips
 
     guarded = [Depends(verify_csrf)]
     app.include_router(public.router, dependencies=guarded)
+    app.include_router(guests.router, dependencies=guarded)
     app.include_router(auth.router, dependencies=guarded)
     app.include_router(app_pages.router, dependencies=guarded)
     app.include_router(trips.router, dependencies=guarded)

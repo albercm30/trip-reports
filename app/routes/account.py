@@ -14,7 +14,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import current_user
 from ..i18n import UI_LANGS
-from ..models import Photo, Trip, User
+from ..models import GuestPhoto, Photo, Trip, User
 from ..security import (SESSION_COOKIE, clear_session_cookie, end_all_sessions, hash_password, password_problem,
                         verify_password)
 from ..services import billing as billing_svc
@@ -85,7 +85,11 @@ def export(db: Session = Depends(get_db), user: User = Depends(current_user)):
                 "sightings": [{"name": s.name, "sci": s.sci, "count": s.count, "heard": s.heard, "confirmed": s.sure,
                                "highlight": s.star, "group": s.group, "gbif_key": s.taxon_key} for s in d.sightings],
                 "photos": [{"caption": p.caption, "file": p.storage_key} for p in d.photos],
+                "positions": [{"lat": p.lat, "lon": p.lon, "label": p.label, "at": p.at} for p in d.points],
             } for d in t.days],
+            "guests": [{"email": g.email, "name": g.name, "wants_news": g.news, "signed_up": g.created_at,
+                        "report_sent": g.sent_at} for g in t.guest_list],
+            "guest_photos": [{"author": p.author, "shown": p.approved, "file": p.storage_key} for p in t.guest_photos],
         } for t in trips],
     }
     body = json.dumps(data, ensure_ascii=False, indent=2, default=str)
@@ -105,6 +109,7 @@ def delete_account(request: Request, db: Session = Depends(get_db), user: User =
         # Owner deletes the whole organization: cancel billing, remove files, then all data.
         billing_svc.cancel_now(org)
         keys = [p.storage_key for p in db.scalars(select(Photo).where(Photo.org_id == org.id))]
+        keys += [p.storage_key for p in db.scalars(select(GuestPhoto).where(GuestPhoto.org_id == org.id))]
         if org.logo_key:
             keys.append(org.logo_key)
         db.delete(org)

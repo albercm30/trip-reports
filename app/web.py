@@ -35,7 +35,29 @@ JS_STRINGS = ["Saving…", "Saved", "Not saved", "Unsaved changes", "Copied.", "
               "Dictate", "Stop dictating", "Listening…", "Allow microphone access in your browser to dictate.",
               "Didn't hear anything. Try again closer to the microphone.", "Dictation needs an internet connection.",
               "Dictation stopped. Try again.", "Language you will speak",
-              "This browser can't dictate in that language. Try Chrome, or another language."]
+              "This browser can't dictate in that language. Try Chrome, or another language.",
+              "Add here",
+              "Allow location access in your browser to save positions.",
+              "Allow microphone access in your browser to record.",
+              "Couldn't be sent.",
+              "Couldn't get a GPS fix. Try again in the open.",
+              "Couldn't save the voice note on this phone.",
+              "Delete",
+              "Delete this from the phone? It hasn't been sent.",
+              "Dictation needs an internet connection. Use “Record a voice note” instead: it works offline.",
+              "Getting your position…",
+              "It will be sent when you have signal.",
+              "No outing on that date. Open the right one and press “Add here”.",
+              "Position saved",
+              "Saved on the phone. It will be turned into text when you have signal.",
+              "Saved on this phone, waiting to be sent:",
+              "Speech-to-text isn't available right now. It will try again.",
+              "Stop",
+              "The voice note was empty.",
+              "Turning it into text…",
+              "Voice note added to your notes.",
+              "position(s)",
+              "voice note(s)"]
 templates.env.globals.update(settings=settings, plans=plans, UI_LANGS=UI_LANGS)
 
 

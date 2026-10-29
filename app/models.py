@@ -3,7 +3,7 @@ from __future__ import annotations
 import secrets
 from datetime import date, datetime, timezone
 
-from sqlalchemy import (Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text,
+from sqlalchemy import (Boolean, Date, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text,
                         UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,6 +42,10 @@ class Organization(Base):
     single_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     # reference photos of each species from Wikimedia Commons in guest reports
     species_photos: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    # guests: review links shown in the report email and report, and a permanent QR card for the boat
+    review_google: Mapped[str] = mapped_column(String(400), default="", server_default="")
+    review_tripadvisor: Mapped[str] = mapped_column(String(400), default="", server_default="")
+    guest_token: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
 
     plan: Mapped[str] = mapped_column(String(16), default="trial")  # trial | starter | pro
     billing_status: Mapped[str] = mapped_column(String(24), default="trialing")
@@ -118,6 +122,11 @@ class Trip(Base):
     intro: Mapped[str] = mapped_column(Text, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
     share_token: Mapped[str | None] = mapped_column(String(48), unique=True, nullable=True)
+    # the guests' QR page: leave an email for the report, upload photos
+    guest_token: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    guests_closed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    report_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    show_map: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -131,6 +140,10 @@ class Trip(Base):
 
     days: Mapped[list[Day]] = relationship(back_populates="trip", cascade="all, delete-orphan",
                                            order_by="Day.position")
+    guest_list: Mapped[list[Guest]] = relationship(back_populates="trip", cascade="all, delete-orphan",
+                                                   order_by="Guest.created_at")
+    guest_photos: Mapped[list[GuestPhoto]] = relationship(back_populates="trip", cascade="all, delete-orphan",
+                                                          order_by="GuestPhoto.created_at")
 
 
 class Day(Base):
@@ -154,6 +167,8 @@ class Day(Base):
                                                      order_by="Sighting.position")
     photos: Mapped[list[Photo]] = relationship(back_populates="day", cascade="all, delete-orphan",
                                                order_by="Photo.position")
+    points: Mapped[list[Point]] = relationship(back_populates="day", cascade="all, delete-orphan",
+                                               order_by="Point.at")
 
 
 class Sighting(Base):
@@ -187,6 +202,54 @@ class Photo(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
 
     day: Mapped[Day] = relationship(back_populates="photos")
+
+
+class Point(Base):
+    """A sighting's position, taken from the guide's phone GPS (works without coverage)."""
+    __tablename__ = "points"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=new_id)
+    day_id: Mapped[str] = mapped_column(ForeignKey("days.id", ondelete="CASCADE"), index=True)
+    lat: Mapped[float] = mapped_column(Float)
+    lon: Mapped[float] = mapped_column(Float)
+    accuracy: Mapped[int | None] = mapped_column(Integer, nullable=True)  # metres
+    label: Mapped[str] = mapped_column(String(120), default="")
+    at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # the phone's wall-clock time
+    client_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)  # dedupes offline retries
+
+    day: Mapped[Day] = relationship(back_populates="points")
+
+
+class Guest(Base):
+    """A guest who left their email on the QR page to receive the report."""
+    __tablename__ = "guests"
+    __table_args__ = (UniqueConstraint("trip_id", "email"),)
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=new_id)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id", ondelete="CASCADE"), index=True)
+    org_id: Mapped[str] = mapped_column(String(16), index=True)
+    email: Mapped[str] = mapped_column(String(254))
+    name: Mapped[str] = mapped_column(String(80), default="")
+    news: Mapped[bool] = mapped_column(Boolean, default=False)  # agreed to hear from the company again
+    lang: Mapped[str] = mapped_column(String(2), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    trip: Mapped[Trip] = relationship(back_populates="guest_list")
+
+
+class GuestPhoto(Base):
+    """A photo a guest uploaded from the QR page. Shown in the report once the guide approves it."""
+    __tablename__ = "guest_photos"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=new_id)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id", ondelete="CASCADE"), index=True)
+    org_id: Mapped[str] = mapped_column(String(16), index=True)
+    storage_key: Mapped[str] = mapped_column(String(200), unique=True)
+    author: Mapped[str] = mapped_column(String(80), default="")
+    approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    trip: Mapped[Trip] = relationship(back_populates="guest_photos")
 
 
 class AIUsage(Base):
@@ -227,5 +290,5 @@ class StripeEvent(Base):
 
 
 __all__ = ["Organization", "User", "AuthSession", "Invite", "PasswordReset", "Trip", "Day",
-           "Sighting", "Photo", "AIUsage", "Blob", "SpeciesImage", "StripeEvent", "new_id", "utcnow", "aware",
+           "Sighting", "Photo", "Point", "Guest", "GuestPhoto", "AIUsage", "Blob", "SpeciesImage", "StripeEvent", "new_id", "utcnow", "aware",
            "UniqueConstraint"]

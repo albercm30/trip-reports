@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="{{ glang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ T.title }}{% if gorg.name %} · {{ gorg.name }}{% endif %}</title>
+<link rel="icon" href="/static/img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/guest.css?v=1">
+</head>
+<body style="--acc:{{ gorg.accent or '#2E6A5C' }}">
+<main class="g">
+  <div class="g-top">
+    {% if gorg.logo_key and trip %}<img class="g-logo" src="/media/{{ gorg.logo_key }}?g={{ trip.guest_token }}" alt="{{ gorg.name }}">{% endif %}
+    {% if gorg.name %}<p class="g-co">{{ gorg.name }}</p>{% endif %}
+  </div>
+
+  {% if state == 'none' %}
+    <h1>{{ T.none }}</h1><p class="g-lead">{{ T.none_lead }}</p>
+  {% elif state == 'closed' %}
+    <h1>{{ T.closed }}</h1><p class="g-lead">{{ T.closed_lead }}</p>
+  {% else %}
+    <p class="g-trip">{{ trip.title }}{% if trip.start_date %} · {{ trip.start_date.strftime('%d/%m/%Y') }}{% endif %}</p>
+    {% if ok %}
+      <div class="g-done" role="status"><span aria-hidden="true">✓</span> {{ T.done_sent if ok == '2' else T.done }}</div>
+    {% else %}
+      <h1>{{ T.title }}</h1>
+      <p class="g-lead">{{ T.lead }}</p>
+      {% if err == 'email' %}<p class="g-err" role="alert">{{ T.bad_email }}</p>{% elif err == 'slow' %}<p class="g-err" role="alert">{{ T.slow }}</p>{% endif %}
+      <form method="post" action="/g/{{ trip.guest_token }}" class="g-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label><span>{{ T.email }}</span><input type="email" name="email" required autocomplete="email" inputmode="email" maxlength="254"></label>
+        <label><span>{{ T.name }}</span><input type="text" name="name" autocomplete="given-name" maxlength="80"></label>
+        <label class="g-hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+        <label class="g-check"><input type="checkbox" name="news" value="1"> <span>{{ T.news }}</span></label>
+        <button class="g-btn">{{ T.send }}</button>
+        <p class="g-small">{{ T.consent.replace('{news}', T.news_short) }} <a href="/privacy">{{ T.privacy }}</a></p>
+      </form>
+    {% endif %}
+
+    <section class="g-photos" id="photos">
+      <h2>{{ T.photos }}</h2>
+      {% if photos_ok and photos_ok != '0' %}<div class="g-done" role="status"><span aria-hidden="true">✓</span> {{ T.photos_ok.replace('{n}', photos_ok) }}</div>
+      {% elif err == 'photos' %}<p class="g-err" role="alert">{{ T.photos_bad }}</p>{% endif %}
+      <p class="g-lead">{{ T.photos_lead }}</p>
+      <form method="post" action="/g/{{ trip.guest_token }}/photos" enctype="multipart/form-data" class="g-form" data-busy-form>
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="g-file"><input type="file" name="files" accept="image/*" multiple required><span>📷 {{ T.photos_btn }}</span></label>
+        <label><span>{{ T.author }}</span><input type="text" name="author" maxlength="80" autocomplete="name"></label>
+        <button class="g-btn">{{ T.photos_btn }}</button>
+        <p class="g-small">{{ T.photos_rights }}</p>
+      </form>
+    </section>
+  {% endif %}
+</main>
+<script src="/static/js/guest.js?v=1" defer></script>
+</body>
+</html>

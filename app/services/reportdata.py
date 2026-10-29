@@ -12,25 +12,25 @@ L = {
            "species": "Species", "max": "Max", "heard": "h", "heard_key": "h = heard only",
            "unsure_key": "? = unconfirmed identification", "tick_key": "| = seen, not counted",
            "total": "species recorded", "guided_by": "Guided by", "guests": "guests", "made": "Report made with {app}",
-           "days": "days", "day_one": "day", "highlights": "Highlights", "other": "Other", "trip_report": "Trip report", "pdf": "Save as PDF", "spotlight": "Species of the trip", "ref_photo": "Reference photos, not taken on this trip.", "credits": "Photo credits", "photo_by": "Photo"},
+           "days": "days", "day_one": "day", "highlights": "Highlights", "other": "Other", "trip_report": "Trip report", "pdf": "Save as PDF", "spotlight": "Species of the trip", "ref_photo": "Reference photos, not taken on this trip.", "credits": "Photo credits", "photo_by": "Photo", "group_photos": "Photos from the group", "map": "Where we saw them", "map_note": "Positions taken with the GPS of the guide's phone.", "review": "Did you enjoy it? A short review helps us a lot.", "google": "Review on Google", "tripadvisor": "Review on TripAdvisor"},
     "es": {"day": "Día", "tally": "El recuento", "tally_sub": "Todas las especies registradas durante el viaje, día a día.",
            "species": "Especie", "max": "Máx.", "heard": "o", "heard_key": "o = solo oída",
            "unsure_key": "? = identificación sin confirmar", "tick_key": "| = vista, sin contar",
            "total": "especies registradas", "guided_by": "Guiado por", "guests": "participantes",
            "made": "Informe creado con {app}", "days": "días", "day_one": "día", "highlights": "Lo más destacado", "other": "Otras",
-           "trip_report": "Informe del viaje", "pdf": "Guardar como PDF", "spotlight": "Especies del viaje", "ref_photo": "Fotos de referencia, no tomadas durante este viaje.", "credits": "Créditos de las fotos", "photo_by": "Foto"},
+           "trip_report": "Informe del viaje", "pdf": "Guardar como PDF", "spotlight": "Especies del viaje", "ref_photo": "Fotos de referencia, no tomadas durante este viaje.", "credits": "Créditos de las fotos", "photo_by": "Foto", "group_photos": "Fotos del grupo", "map": "Dónde los vimos", "map_note": "Posiciones tomadas con el GPS del móvil del guía.", "review": "¿Te gustó? Una reseña corta nos ayuda muchísimo.", "google": "Reseña en Google", "tripadvisor": "Reseña en TripAdvisor"},
     "de": {"day": "Tag", "tally": "Die Artenliste", "tally_sub": "Alle auf der Reise nachgewiesenen Arten, Tag für Tag.",
            "species": "Art", "max": "Max.", "heard": "g", "heard_key": "g = nur gehört",
            "unsure_key": "? = unbestätigte Bestimmung", "tick_key": "| = gesehen, nicht gezählt",
            "total": "Arten nachgewiesen", "guided_by": "Reiseleitung", "guests": "Gäste",
            "made": "Bericht erstellt mit {app}", "days": "Tage", "day_one": "Tag", "highlights": "Höhepunkte", "other": "Sonstige",
-           "trip_report": "Reisebericht", "pdf": "Als PDF speichern", "spotlight": "Arten der Reise", "ref_photo": "Referenzfotos, nicht auf dieser Reise aufgenommen.", "credits": "Bildnachweise", "photo_by": "Foto"},
+           "trip_report": "Reisebericht", "pdf": "Als PDF speichern", "spotlight": "Arten der Reise", "ref_photo": "Referenzfotos, nicht auf dieser Reise aufgenommen.", "credits": "Bildnachweise", "photo_by": "Foto", "group_photos": "Fotos der Gruppe", "map": "Wo wir sie gesehen haben", "map_note": "Positionen per GPS mit dem Handy des Guides aufgenommen.", "review": "Hat es Ihnen gefallen? Eine kurze Bewertung hilft uns sehr.", "google": "Bewertung auf Google", "tripadvisor": "Bewertung auf TripAdvisor"},
     "fr": {"day": "Jour", "tally": "Le décompte", "tally_sub": "Toutes les espèces observées pendant le voyage, jour par jour.",
            "species": "Espèce", "max": "Max.", "heard": "e", "heard_key": "e = seulement entendue",
            "unsure_key": "? = identification non confirmée", "tick_key": "| = vue, non comptée",
            "total": "espèces observées", "guided_by": "Guidé par", "guests": "participants",
            "made": "Rapport créé avec {app}", "days": "jours", "day_one": "jour", "highlights": "Temps forts", "other": "Autres",
-           "trip_report": "Rapport de voyage", "pdf": "Enregistrer en PDF", "spotlight": "Espèces du voyage", "ref_photo": "Photos de référence, non prises pendant ce voyage.", "credits": "Crédits photo", "photo_by": "Photo"},
+           "trip_report": "Rapport de voyage", "pdf": "Enregistrer en PDF", "spotlight": "Espèces du voyage", "ref_photo": "Photos de référence, non prises pendant ce voyage.", "credits": "Crédits photo", "photo_by": "Photo", "group_photos": "Photos du groupe", "map": "Où nous les avons vus", "map_note": "Positions relevées avec le GPS du téléphone du guide.", "review": "Vous avez aimé ? Un petit avis nous aide beaucoup.", "google": "Avis sur Google", "tripadvisor": "Avis sur TripAdvisor"},
 }
 
 GROUPS = {
@@ -144,7 +144,18 @@ def build_report(trip, org, app_name: str, images: dict | None = None) -> dict:
     pics = {r.sci: images[r.sci] for r in rows if r.sci and r.sci in images and not r.unsure}
     featured = sorted((r for r in rows if r.sci in pics), key=lambda r: not r.star)[:6]
     cover = next((p for d in days for p in d.photos), None)
+    points = []
+    if getattr(trip, "show_map", True) is not False:
+        for i, d in enumerate(days):
+            for p in d.points:
+                points.append({"lat": round(p.lat, 4), "lon": round(p.lon, 4), "label": p.label,
+                               "time": p.at.strftime("%H:%M") if p.at and len(days) == 1 else "",
+                               "day": i + 1 if len(days) > 1 else None})
+        for n, p in enumerate(points, 1):
+            p["n"] = n
     return {
+        "points": points,
+        "group_photos": [p for p in getattr(trip, "guest_photos", []) if p.approved],
         "pics": pics,
         "featured": featured,
         "credited": [pics[r.sci] for r in rows if r.sci in pics],

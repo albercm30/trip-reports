@@ -27,6 +27,11 @@
     </div>
     <label class="field" id="targets"><span>{{ _('Target species') }}</span><input type="text" name="targets" value="{{ org.targets }}" placeholder="{{ _('Iberian Lynx, Spanish Imperial Eagle, Eurasian Eagle-Owl') }}"><small>{{ _('The animals your guests come for, separated by commas. Insights shows how often you find them.') }}</small></label>
     <label class="field"><span>{{ _('Sign-off') }}</span><textarea name="signoff" rows="3" placeholder="{{ _('Thank you for travelling with us.') }}&#10;Alberto">{{ org.signoff }}</textarea><small>{{ _('Goes at the end of every report, exactly as written.') }}</small></label>
+    <div class="grid2" id="reviews">
+      <label class="field"><span>{{ _('Google review link') }}</span><input type="url" name="review_google" value="{{ org.review_google }}" maxlength="400" placeholder="https://g.page/r/…/review" inputmode="url"><small>{{ _('In Google Business Profile: “Ask for reviews”, then copy the link.') }}</small></label>
+      <label class="field"><span>{{ _('TripAdvisor link') }}</span><input type="url" name="review_tripadvisor" value="{{ org.review_tripadvisor }}" maxlength="400" placeholder="https://www.tripadvisor.es/…" inputmode="url"><small>{{ _('Your page or its “Write a review” link.') }}</small></label>
+    </div>
+    <p class="hint" style="margin:-4px 0 12px">{{ _('Guests get these buttons in the report email and at the end of the report.') }} <a href="/app/qr-card" target="_blank" rel="noopener">{{ _('Print the permanent QR card for your boat') }}</a></p>
     <label class="check"><input type="checkbox" name="show_credit" value="1" {% if org.show_credit %}checked{% endif %}> <span>{{ _('Show “Report made with {app}” in the footer', app=app_name) }}</span></label>
     <label class="check"><input type="checkbox" name="species_photos" value="1" {% if org.species_photos %}checked{% endif %}> <span>{{ _('Show reference photos of each species (free-licence photos from Wikimedia Commons, with credits)') }}</span></label>
     <label class="check"><input type="checkbox" name="data_sharing" value="1" {% if org.data_sharing %}checked{% endif %}> <span>{{ _('Allow anonymised sighting data (species, date and area, never guests or notes) to be used for wildlife research and forecasts.') }}</span></label>

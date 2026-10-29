@@ -8,4 +8,5 @@ psycopg[binary]>=3.2
 httpx>=0.27
 pillow>=10.4
 stripe>=11
+segno>=1.6
 # Optional extras (Claude, S3 photo storage) are in requirements-optional.txt to keep deploys fast.

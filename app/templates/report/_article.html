@@ -42,6 +42,27 @@
   </section>
   {% endfor %}
 
+  {% if R.group_photos %}
+  <h2 class="r-sec">{{ L.group_photos }}</h2>
+  <div class="r-photos r-group">
+    {% for p in R.group_photos %}
+    <figure><img src="/media/{{ p.storage_key }}{{ media_qs }}" alt="{{ L.group_photos }}" loading="lazy">{% if p.author %}<figcaption>{{ L.photo_by }}: {{ p.author }}</figcaption>{% endif %}</figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if R.points %}
+  <h2 class="r-sec" id="map">{{ L.map }}</h2>
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+  <div class="r-map" data-points='{{ R.points|tojson }}' role="img" aria-label="{{ L.map }}"></div>
+  <ol class="r-mapkey">
+    {% for p in R.points %}<li><span class="r-pin">{{ p.n }}</span>{{ p.label or '—' }}{% if p.time %} <small>{{ p.time }}</small>{% elif p.day %} <small>{{ L.day }} {{ p.day }}</small>{% endif %}</li>{% endfor %}
+  </ol>
+  <p class="r-key">{{ L.map_note }} © OpenStreetMap</p>
+  <script src="/static/vendor/leaflet/leaflet.js" defer></script>
+  <script src="/static/js/map.js?v=1" defer></script>
+  {% endif %}
+
   {% if R.featured %}
   <h2 class="r-sec">{{ L.spotlight }}</h2>
   <div class="r-spot">
@@ -82,6 +103,14 @@
 
   {% if trip.summary %}<section class="r-day">{{ trip.summary|nl2p }}</section>{% endif %}
   {% if rorg.signoff %}<p class="r-sign">{{ rorg.signoff }}</p>{% endif %}
+  {% set rg, rt = rorg.review_google|default(''), rorg.review_tripadvisor|default('') %}
+  {% if rg or rt %}
+  <div class="r-review">
+    <p>{{ L.review }}</p>
+    {% if rg %}<a href="{{ rg }}" target="_blank" rel="noopener">{{ L.google }}</a>{% endif %}
+    {% if rt %}<a href="{{ rt }}" target="_blank" rel="noopener">{{ L.tripadvisor }}</a>{% endif %}
+  </div>
+  {% endif %}
   {% if R.credited %}
   <div class="r-credits"><p><b>{{ L.credits }}</b></p>
     <ul>{% for im in R.credited %}<li><i>{{ im.sci }}</i>: {{ L.photo_by }} {{ im.credit }}, <a href="{{ im.page }}" rel="noopener nofollow" target="_blank">{{ im.license }}</a>, Wikimedia Commons</li>{% endfor %}</ul>

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..deps import NotFound, current_user, get_trip, writer
-from ..models import Organization, Photo, Trip, User
+from ..models import GuestPhoto, Organization, Photo, Trip, User
 from ..security import user_from_request
 from ..services import species_images, storage
 from ..services.reportdata import build_report
@@ -70,6 +70,11 @@ def media(key: str, request: Request, db: Session = Depends(get_db)):
         allowed = True
     else:
         token = request.query_params.get("s", "")
+        gtoken = request.query_params.get("g", "")
+        if gtoken and not token:  # the guests' QR page shows the company logo
+            trip = db.scalar(select(Trip).where(Trip.guest_token == gtoken))
+            org = db.get(Organization, org_id) if trip and trip.org_id == org_id else None
+            allowed = bool(org and org.logo_key == key)
         if token:
             trip = db.scalar(select(Trip).where(Trip.share_token == token))
             if trip and trip.org_id == org_id:
@@ -78,7 +83,8 @@ def media(key: str, request: Request, db: Session = Depends(get_db)):
                     allowed = True
                 else:
                     ph = db.scalar(select(Photo).where(Photo.storage_key == key))
-                    allowed = bool(ph and ph.day.trip_id == trip.id)
+                    gp = None if ph else db.scalar(select(GuestPhoto).where(GuestPhoto.storage_key == key))
+                    allowed = bool(ph and ph.day.trip_id == trip.id) or bool(gp and gp.approved and gp.trip_id == trip.id)
     if not allowed:
         raise NotFound()
     st = storage.store()

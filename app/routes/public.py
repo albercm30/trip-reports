@@ -96,10 +96,20 @@ def manifest(request: Request, user=Depends(optional_user)):
     }, media_type="application/manifest+json", headers={"Cache-Control": "public, max-age=3600"})
 
 
-SW = """// Service worker: lets guides install the app and keeps the look (styles, scripts, icons) cached.
-// Pages and data always come from the network, so nothing private is stored on the phone.
-const CACHE = "static-v1";
-self.addEventListener("install", e => self.skipWaiting());
+@router.get("/offline")
+def offline(request: Request, user=Depends(optional_user)):
+    resp = render(request, "public/offline.html")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+SW = """// Service worker: lets guides install the app, keeps the look (styles, scripts, icons) cached, and
+// opens the "no signal" page (record voice notes, save GPS positions) when there's no connection.
+// Pages and data always come from the network, so nothing private is stored by it.
+const CACHE = "static-v2";
+const OFFLINE = ["/offline", "/static/js/field.js?v=1", "/static/css/app.css?v=5", "/static/img/icon.svg"];
+self.addEventListener("install", e => e.waitUntil(
+  caches.open(CACHE).then(c => c.addAll(OFFLINE)).catch(() => null).then(() => self.skipWaiting())));
 self.addEventListener("activate", e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", e => {
@@ -113,13 +123,14 @@ self.addEventListener("fetch", e => {
     return;
   }
   if (e.request.mode === "navigate") {
-    e.respondWith(fetch(e.request).catch(() => new Response(
+    e.respondWith(fetch(e.request).then(r => {
+      if (url.pathname === "/offline" && r.ok) caches.open(CACHE).then(c => c.put("/offline", r.clone()));
+      return r;
+    }).catch(() => caches.match("/offline").then(hit => hit || new Response(
       '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<body style="font-family:system-ui,sans-serif;padding:32px;color:#1C2420;background:#F2F3EE">' +
-      '<h1 style="font-size:1.4rem">Sin conexión · Offline</h1>' +
-      '<p>No hay conexión ahora mismo. Vuelve a intentarlo cuando tengas cobertura.</p>' +
-      '<p>No connection right now. Try again when you have signal.</p></body>',
-      {headers: {"Content-Type": "text/html; charset=utf-8"}})));
+      '<body style="font-family:system-ui,sans-serif;padding:32px"><h1>Sin conexión · Offline</h1>' +
+      '<p>Vuelve a intentarlo cuando tengas cobertura. Try again when you have signal.</p></body>',
+      {headers: {"Content-Type": "text/html; charset=utf-8"}}))));
   }
 });
 """

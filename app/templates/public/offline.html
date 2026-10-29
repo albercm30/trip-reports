@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ _('No signal') }} · {{ app_name }}</title>
+<link rel="icon" href="/static/img/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2E6A5C">
+<link rel="stylesheet" href="/static/css/app.css?v=5">
+</head>
+<body data-offline-page>
+<main class="wrap" style="max-width:560px;padding-top:28px">
+  <h1 class="page">{{ _('No signal right now') }}</h1>
+  <p class="hint">{{ _('You can still record voice notes and save GPS positions. They stay on this phone and are added to the outing of the same date as soon as you open the app with signal.') }}</p>
+  <div class="panel">
+    <div class="field-tool" data-voice hidden>
+      <button type="button" class="btn rec" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span class="lbl">{{ _('Record a voice note') }}</span></button>
+      <span class="hint" data-voice-state aria-live="polite"></span>
+    </div>
+    <div class="field-tool gps" data-gps hidden style="margin-top:16px">
+      <input type="text" maxlength="120" placeholder="{{ _('What did you see? (optional)') }}" aria-label="{{ _('What did you see?') }}">
+      <button type="button" class="btn small">📍 {{ _('Save position here') }}</button>
+      <span class="hint" data-gps-state aria-live="polite"></span>
+    </div>
+    <p class="hint" data-field-msg aria-live="polite"></p>
+  </div>
+  <div class="panel field-pending" id="field-pending" hidden>
+    <p data-count></p>
+    <ul></ul>
+  </div>
+  <p style="margin-top:20px"><a class="btn primary" href="/app">{{ _('Try again') }}</a></p>
+</main>
+<script type="application/json" id="i18n">{{ js_strings|tojson }}</script>
+<script src="/static/js/field.js?v=1" defer></script>
+</body>
+</html>

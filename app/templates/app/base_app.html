@@ -24,5 +24,11 @@
     <div class="banner">{{ _('{n} days left in your free trial.', n=plans.trial_days_left(org)) }} {% if user.is_owner %}<a href="/app/billing">{{ _('Choose a plan') }}</a>{% endif %}</div>
   {% endif %}
 </header>
-<main class="{% block mainclass %}wrap{% endblock %}">{% block main %}{% endblock %}</main>
+<main class="{% block mainclass %}wrap{% endblock %}">
+<div class="panel field-pending no-print" id="field-pending" hidden>
+  <p data-count></p>
+  <ul></ul>
+  <button type="button" class="btn small" id="field-send">{{ _('Send now') }}</button>
+</div>
+{% block main %}{% endblock %}</main>
 {% endblock %}

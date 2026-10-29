@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import csv
 import io
+import secrets
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,9 +15,10 @@ from ..config import settings
 from ..db import get_db
 from ..deps import current_user, get_day, get_trip, writer
 from ..i18n import translate
-from ..models import Day, Photo, Sighting, Trip, User
+from ..models import AIUsage, Day, Photo, Sighting, Trip, User
 from ..security import ai_limiter
-from ..services import verify, drafting, storage, species_images
+from ..services import verify, drafting, fieldnotes, storage, species_images, voice
+from ..services import guests as guests_svc
 from ..services.reportdata import REPORT_LANGS, build_report, build_tally, report_checks
 from ..web import ok_or_redirect, redirect, render, wants_json
 
@@ -33,6 +35,13 @@ def _date(v: str | None) -> date | None:
         return date.fromisoformat((v or "").strip()) if v else None
     except ValueError:
         return None
+
+
+def _filename(title: str) -> str:
+    """A safe ASCII file name from the trip title ("Cetáceos · mañana" -> "cetaceos-manana")."""
+    import unicodedata
+    plain = unicodedata.normalize("NFKD", title or "").encode("ascii", "ignore").decode().lower()
+    return "-".join("".join(c if c.isalnum() else " " for c in plain).split())[:60] or "trip"
 
 
 def _int(v, lo: int = 0, hi: int = 100000) -> int | None:
@@ -60,15 +69,16 @@ def _last_trip(db: Session, org_id: str) -> Trip | None:
                      .order_by(Trip.start_date.desc().nulls_last(), Trip.created_at.desc()).limit(1))
 
 
-def _new_outing(db: Session, user: User, like: Trip | None) -> Trip:
+def _new_outing(db: Session, user: User, like: Trip | None, when: date | None = None) -> Trip:
     """A single-day outing dated today, with the details guides repeat every time already filled in."""
-    t = Trip(org_id=user.org_id, guides=user.name, start_date=date.today(), created_by=user.id)
+    when = when or date.today()
+    t = Trip(org_id=user.org_id, guides=user.name, start_date=when, created_by=user.id)
     place = ""
     if like:
         t.title, t.location, t.lang = like.title, like.location, like.lang
         t.guides = like.guides or user.name
         place = like.days[0].place if like.days else ""
-    t.days.append(Day(position=0, date=date.today(), place=place))
+    t.days.append(Day(position=0, date=when, place=place))
     db.add(t)
     db.commit()
     return t
@@ -113,6 +123,10 @@ def trip_page(trip_id: str, request: Request, db: Session = Depends(get_db), use
         ctx["ready"] = not any(c[0] == "warn" for c in ctx["checks"])
         ctx["rorg"] = org
         ctx["media_qs"] = ""
+        ctx["guest_url"] = guests_svc.trip_url(db, trip)
+        ctx["guest_qr"] = guests_svc.qr_svg(ctx["guest_url"])
+        ctx["mail_on"] = settings.mail_enabled
+        ctx["n_points"] = sum(len(d.points) for d in trip.days)
     if tab == "days":
         ctx["n_species"] = len(build_tally(trip))
     return render(request, "app/trip.html", ctx, user=user)
@@ -151,7 +165,7 @@ async def save_trip(trip_id: str, request: Request, db: Session = Depends(get_db
 @router.post("/{trip_id}/delete")
 def delete_trip(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     trip = get_trip(db, user, trip_id)
-    keys = [p.storage_key for d in trip.days for p in d.photos]
+    keys = [p.storage_key for d in trip.days for p in d.photos] + [p.storage_key for p in trip.guest_photos]
     db.delete(trip)
     db.commit()
     for k in keys:
@@ -183,7 +197,7 @@ def export_csv(trip_id: str, db: Session = Depends(get_db), user: User = Depends
             w.writerow([trip.title, i, d.date.isoformat() if d.date else "", d.place, s.name, s.sci,
                         "" if s.count is None else s.count, int(s.heard), int(s.sure), int(s.star), s.group,
                         s.taxon_key or ""])
-    name = "".join(c if c.isalnum() else "-" for c in (trip.title or "trip").lower()).strip("-") or "trip"
+    name = _filename(trip.title)
     return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}-sightings.csv"'})
 
@@ -234,6 +248,10 @@ async def _save_day_form(request: Request, db: Session, user: User, trip: Trip, 
             k = f"ph_{ph.id}_caption"
             if k in f:
                 ph.caption = str(f.get(k, ""))[:300]
+        for pt in day.points:
+            k = f"pt_{pt.id}_label"
+            if k in f:
+                pt.label = " ".join(str(f.get(k, "")).split())[:120]
     db.commit()
 
 
@@ -417,3 +435,140 @@ async def delete_photo(trip_id: str, day_id: str, pid: str, request: Request, db
         db.commit()
         storage.store().delete(key)
     return redirect(_day_url(trip, day))
+
+
+# ---------------------------------------------------------------- field notes: GPS positions and voice notes
+@router.post("/{trip_id}/days/{day_id}/points")
+async def add_point(trip_id: str, day_id: str, request: Request, db: Session = Depends(get_db),
+                    user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    day = get_day(db, trip, day_id)
+    try:
+        data = await request.json()
+    except ValueError:
+        data = {}
+    p = fieldnotes.add_point(db, day, data if isinstance(data, dict) else {})
+    if p is None:
+        return JSONResponse({"ok": False, "error": "bad_point"}, status_code=400)
+    return JSONResponse({"ok": True, "point": fieldnotes.point_json(p)})
+
+
+@router.post("/{trip_id}/days/{day_id}/points/{pid}/delete")
+async def delete_point(trip_id: str, day_id: str, pid: str, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    day = get_day(db, trip, day_id)
+    if not wants_json(request):
+        await _save_day_form(request, db, user, trip, day)
+    p = next((x for x in day.points if x.id == pid), None)
+    if p:
+        day.points.remove(p)
+        db.commit()
+    return ok_or_redirect(request, _day_url(trip, day))
+
+
+@router.post("/{trip_id}/days/{day_id}/voice")
+async def voice_note(trip_id: str, day_id: str, request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(writer), audio: UploadFile = File(...)):
+    trip = get_trip(db, user, trip_id)
+    day = get_day(db, trip, day_id)
+    f = await request.form()
+    data = await audio.read(voice.MAX_AUDIO + 1)
+    try:
+        text = voice.transcribe(data, audio.content_type or "audio/webm", str(f.get("lang", ""))[:2],
+                                fieldnotes.vocabulary(trip, day))
+    except voice.VoiceError as e:
+        code = 413 if str(e) == "too_large" else (400 if str(e) == "empty" else 503)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=code)
+    db.add(AIUsage(org_id=user.org_id, user_id=user.id, kind="voice", input_tokens=len(data) // 1000))
+    if f.get("append") == "1":  # the day isn't open on the phone: file it straight into the notes
+        fieldnotes.append_notes(day, text)
+    db.commit()
+    return JSONResponse({"ok": True, "text": text})
+
+
+# ---------------------------------------------------------------- guests: QR page, report email, their photos
+@router.get("/{trip_id}/qr")
+def trip_qr(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    trip = get_trip(db, user, trip_id)
+    url = guests_svc.trip_url(db, trip)
+    t = guests_svc.labels(trip.report_lang, user.org.name)
+    return render(request, "app/qr.html", {"qr": guests_svc.qr_svg(url), "qr_url": url, "T": t, "trip": trip,
+                                           "card": False}, user=user)
+
+
+@router.post("/{trip_id}/guests/send")
+def send_to_guests(trip_id: str, request: Request, background: BackgroundTasks, db: Session = Depends(get_db),
+                   user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    if not trip.share_token:
+        trip.share_token = secrets.token_urlsafe(18)
+    trip.report_sent_at = trip.report_sent_at or datetime.now(timezone.utc)
+    db.commit()
+    pending = [g for g in trip.guest_list if not g.sent_at]
+    if not settings.mail_enabled:
+        return redirect(f"/app/trips/{trip.id}?tab=report#guests", "Email isn't set up on this server, so nothing was sent.")
+    background.add_task(guests_svc.send_pending, trip.id)
+    return redirect(f"/app/trips/{trip.id}?tab=report#guests",
+                    translate(user.ui_lang, "Sending the report to {n} guest(s). Anyone who signs up from now on gets it straight away.", n=len(pending)))
+
+
+@router.post("/{trip_id}/guests/toggle")
+def toggle_guests(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    trip.guests_closed = not trip.guests_closed
+    db.commit()
+    return redirect(f"/app/trips/{trip.id}?tab=report#guests",
+                    "Guest page closed." if trip.guests_closed else "Guest page open again.")
+
+
+@router.post("/{trip_id}/guests/{gid}/delete")
+def delete_guest(trip_id: str, gid: str, request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    g = next((x for x in trip.guest_list if x.id == gid), None)
+    if g:
+        trip.guest_list.remove(g)
+        db.commit()
+    return redirect(f"/app/trips/{trip.id}?tab=report#guests")
+
+
+@router.get("/{trip_id}/guests.csv")
+def guests_csv(trip_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    trip = get_trip(db, user, trip_id)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["email", "name", "wants_news", "signed_up", "report_sent"])
+    for g in trip.guest_list:
+        w.writerow([g.email, g.name, int(g.news), g.created_at.isoformat() if g.created_at else "",
+                    g.sent_at.isoformat() if g.sent_at else ""])
+    name = _filename(trip.title)
+    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}-guests.csv"'})
+
+
+@router.post("/{trip_id}/guest-photos/{pid}/{action}")
+def guest_photo_action(trip_id: str, pid: str, action: str, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    photos = trip.guest_photos if pid == "all" else [p for p in trip.guest_photos if p.id == pid]
+    keys = []
+    for p in photos:
+        if action == "show":
+            p.approved = True
+        elif action == "hide":
+            p.approved = False
+        elif action == "delete":
+            keys.append(p.storage_key)
+            trip.guest_photos.remove(p)
+    db.commit()
+    for k in keys:
+        storage.store().delete(k)
+    return redirect(f"/app/trips/{trip.id}?tab=report#guest-photos")
+
+
+@router.post("/{trip_id}/map")
+def toggle_map(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    trip = get_trip(db, user, trip_id)
+    trip.show_map = not trip.show_map
+    db.commit()
+    return redirect(f"/app/trips/{trip.id}?tab=report#map")

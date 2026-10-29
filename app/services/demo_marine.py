@@ -5,11 +5,11 @@ fact-checks find nothing to flag in it)."""
 from __future__ import annotations
 
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from ..models import Day, Organization, Sighting, Trip
+from ..models import Day, Organization, Point, Sighting, Trip
 from .reportdata import group_label
 
 LOCATION = {"es": "Costa oeste de La Palma, Canarias", "en": "West coast of La Palma, Canary Islands"}
@@ -139,6 +139,15 @@ def build_marine_trip(lang: str, guide: str = "") -> Trip:
     rows = [("gma", 25, {"star": True}), ("ttr", 8, {}), ("cbo", None, {}), ("cca", 1, {"star": True}),
             ("zca", None, {"sure": False})]
     d.sightings = [_sighting(lang, k, c, i, **kw) for i, (k, c, kw) in enumerate(rows)]
+    names = {s.sci: s.name for s in d.sightings}
+    # where they were seen, off Tazacorte (the order and times follow the notes)
+    for lat, lon, sci, hm, pre in [(28.6521, -17.9853, "Globicephala macrorhynchus", (10, 36), ""),
+                                   (28.6284, -17.9921, "Tursiops truncatus", (11, 14), ""),
+                                   (28.6447, -17.9690, "Caretta caretta", (12, 15), ""),
+                                   (28.6402, -17.9575, "Ziphius cavirostris", (12, 28), "?")]:
+        label = names[sci] + (" ?" if pre else "")
+        d.points.append(Point(lat=lat, lon=lon, label=label, accuracy=8,
+                              at=datetime(day.year, day.month, day.day, *hm, tzinfo=timezone.utc)))
     t.days.append(d)
     t.intro, t.summary = X["intro"], X["summary"].format(n=len(rows))
     return t

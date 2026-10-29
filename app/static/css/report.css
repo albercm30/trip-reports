@@ -56,7 +56,16 @@
 .rpt .r-credits p{margin:0 0 4px}
 .rpt .r-credits ul{margin:0;padding-left:16px}
 .rpt .r-credits a{color:inherit}
-@media (max-width:560px){.rpt .r-cover{margin:22px -18px 0}.rpt .r-cover figcaption{padding:0 18px}.rpt .r-spot{grid-template-columns:repeat(2,1fr);gap:10px}.rpt{font-size:16px;padding:28px 18px}.rpt h1{font-size:1.8rem}.rpt .r-dn{font-size:1.9rem}}
+.rpt .r-map{height:360px;border-radius:6px;margin:14px 0 0;background:#DCE6E8;z-index:0;font-family:"Instrument Sans",system-ui,sans-serif}
+.rpt .r-mapkey{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px 18px;font-family:"Instrument Sans",system-ui,sans-serif;font-size:.88rem}
+.rpt .r-mapkey li{display:flex;align-items:center;gap:7px}
+.rpt .r-mapkey small{color:#69746D}
+.rpt .r-pin,.r-mk{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font:700 11px/1 "Instrument Sans",system-ui,sans-serif;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);flex:none}
+.r-mk{width:24px;height:24px}
+.rpt .r-review{margin-top:26px;padding:16px 18px;border-radius:8px;background:#F5F7F3;font-family:"Instrument Sans",system-ui,sans-serif}
+.rpt .r-review p{margin:0 0 10px;font-weight:600}
+.rpt .r-review a{display:inline-block;margin:0 8px 6px 0;padding:8px 14px;border-radius:9px;border:1px solid var(--acc);color:var(--acc);font-weight:600;text-decoration:none;font-size:.92rem}
+@media (max-width:560px){.rpt .r-map{height:300px}.rpt .r-cover{margin:22px -18px 0}.rpt .r-cover figcaption{padding:0 18px}.rpt .r-spot{grid-template-columns:repeat(2,1fr);gap:10px}.rpt{font-size:16px;padding:28px 18px}.rpt h1{font-size:1.8rem}.rpt .r-dn{font-size:1.9rem}}
 @media print{
   @page{margin:16mm 14mm}
   .rpt{padding:0;max-width:none;font-size:11.5pt}
@@ -66,6 +75,7 @@
   .rpt{border-top-width:4px}
   .rpt .r-cover{margin:18px 0 0}.rpt .r-cover img{max-height:95mm}
   .rpt .r-spot{grid-template-columns:repeat(3,1fr)}
+  .rpt .r-map{height:85mm;break-inside:avoid}.rpt .r-map .leaflet-control-zoom{display:none}
   .rpt .r-credits a{text-decoration:none}
   .rpt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }

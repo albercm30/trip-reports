@@ -14,15 +14,19 @@
 <h2 class="sec">Para qué y con qué base</h2>
 <p>Para prestar el servicio contratado (ejecución del contrato), cobrar la suscripción (obligación legal y contrato) y mantener la seguridad (interés legítimo). No vendemos datos ni los usamos para publicidad.</p>
 <h2 class="sec">Encargados del tratamiento</h2>
-<p>Alojamiento y base de datos de nuestro proveedor de hosting; pagos con Stripe; envío de emails de la cuenta (invitaciones y cambio de contraseña) con Brevo; comprobación de nombres de especies con GBIF (solo se envían nombres de especies); y, si está activado, un proveedor de IA (Groq, Cloudflare Workers AI o Anthropic) para interpretar notas, comprobar la ortografía y redactar borradores; se le envían las notas y la lista de especies del día. Estos proveedores no usan esos datos para entrenar sus modelos.</p>
+<p>Alojamiento y base de datos de nuestro proveedor de hosting; pagos con Stripe; envío de emails (invitaciones, cambio de contraseña e informes a los clientes que lo piden) con Brevo; comprobación de nombres de especies con GBIF (solo se envían nombres de especies); y, si está activado, un proveedor de IA (Groq, Cloudflare Workers AI o Anthropic) para interpretar notas, comprobar la ortografía y redactar borradores; se le envían las notas y la lista de especies del día. Estos proveedores no usan esos datos para entrenar sus modelos.</p>
 <h2 class="sec">Dictado</h2>
 <p>El botón «Dictar» usa el reconocimiento de voz de tu navegador. Según el navegador (por ejemplo Chrome o Safari), el audio puede procesarlo su fabricante. Nosotros solo recibimos el texto resultante. Si prefieres no usarlo, escribe o usa el teclado.</p>
+<p>Las notas de voz («Grabar nota de voz») se guardan en tu móvil hasta que hay conexión; entonces el audio se envía a Groq o Cloudflare Workers AI para pasarlo a texto y no lo conservamos: solo guardamos el texto.</p>
+<h2 class="sec">Posiciones GPS</h2>
+<p>Las posiciones de los avistamientos solo se toman cuando el guía pulsa «Guardar posición aquí». El mapa del informe puede desactivarse en cada salida, por ejemplo con especies sensibles.</p>
 <h2 class="sec">Fotos</h2>
 <p>Al subir una foto eliminamos sus metadatos (incluida la ubicación GPS) para proteger especies sensibles.</p>
 <h2 class="sec">Conservación y tus derechos</h2>
 <p>Conservamos los datos mientras la cuenta esté activa. Puedes exportar todos los datos y borrar la cuenta en cualquier momento desde «Cuenta». Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad escribiendo a {{ contact }}, y reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
 <h2 class="sec">Clientes de los operadores</h2>
 <p>Si un informe incluye nombres de participantes, el operador es el responsable de esos datos y nosotros actuamos como encargado del tratamiento.</p>
+<p>En la página QR de una salida, los clientes pueden dejar su email (y su nombre) para recibir el informe, y subir fotos. Ese email se usa para enviar el informe de esa salida y, solo si el cliente marca la casilla, para que el operador le envíe novedades. Las fotos de clientes solo aparecen en el informe si el operador las aprueba, y se les quitan los metadatos. El operador es el responsable de estos datos; para borrarlos, escríbele a él o a {{ contact }}.</p>
 {% else %}
 <h1 class="page">Privacy policy</h1>
 <h2 class="sec">Who we are</h2>
@@ -32,15 +36,19 @@
 <h2 class="sec">Why, and on what basis</h2>
 <p>To provide the service you signed up for (contract), to charge your subscription (contract and legal obligation) and to keep the service secure (legitimate interest). We don't sell data or use it for advertising.</p>
 <h2 class="sec">Processors</h2>
-<p>Our hosting and database provider; Stripe for payments; Brevo to send account emails (invites and password resets); GBIF to check species names (only species names are sent); and, when enabled, an AI provider (Groq, Cloudflare Workers AI or Anthropic) to read notes, fix spelling and draft reports; it receives the day's notes and species list. These providers don't use that data to train their models.</p>
+<p>Our hosting and database provider; Stripe for payments; Brevo to send emails (invites, password resets and reports to guests who ask for them); GBIF to check species names (only species names are sent); and, when enabled, an AI provider (Groq, Cloudflare Workers AI or Anthropic) to read notes, fix spelling and draft reports; it receives the day's notes and species list. These providers don't use that data to train their models.</p>
 <h2 class="sec">Dictation</h2>
 <p>The “Dictate” button uses your browser's speech recognition. Depending on the browser (for example Chrome or Safari), the audio may be processed by its maker. We only receive the resulting text. If you prefer not to use it, type or use your keyboard.</p>
+<p>Voice notes (“Record a voice note”) stay on your phone until there's a connection; then the audio is sent to Groq or Cloudflare Workers AI to turn it into text, and we don't keep it: only the text is stored.</p>
+<h2 class="sec">GPS positions</h2>
+<p>Sighting positions are only taken when the guide presses “Save position here”. The report map can be turned off for each outing, for example for sensitive species.</p>
 <h2 class="sec">Photos</h2>
 <p>When a photo is uploaded we remove its metadata, including GPS location, to protect sensitive species.</p>
 <h2 class="sec">Retention and your rights</h2>
 <p>We keep data while the account is active. You can export all data and delete the account at any time under “Account”. To exercise your rights of access, correction, deletion, objection, restriction and portability, write to {{ contact }}. You can also complain to your data protection authority (in Spain, the AEPD at aepd.es).</p>
 <h2 class="sec">Operators' guests</h2>
 <p>If a report includes guests' names, the operator is the controller of that data and we act as its processor.</p>
+<p>On an outing's QR page, guests can leave their email (and name) to receive the report, and upload photos. The email is used to send that outing's report and, only if the guest ticks the box, for the operator to send them news. Guests' photos only appear in the report if the operator approves them, and their metadata is removed. The operator is the controller of this data; to have it deleted, write to them or to {{ contact }}.</p>
 {% endif %}
 </div>
 {% endblock %}

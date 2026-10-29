@@ -51,7 +51,7 @@
         .then(function () { busy = false; if (again) { again = false; send(); } });
     }
     function schedule(ms) { dirty = true; setState("Unsaved changes"); clearTimeout(timer); timer = setTimeout(send, ms); }
-    form.addEventListener("input", function (e) { if (e.target.type !== "file") schedule(900); });
+    form.addEventListener("input", function (e) { if (e.target.type !== "file" && !e.target.hasAttribute("data-no-save")) schedule(900); });
     form.addEventListener("change", function (e) {
       if (e.target.type === "checkbox" || e.target.tagName === "SELECT" || e.target.type === "date" || e.target.type === "color") schedule(50);
     });
@@ -221,7 +221,7 @@
           } else if (ev.error === "language-not-supported") {
             wanted = false; toast(t("This browser can't dictate in that language. Try Chrome, or another language."));
           } else if (ev.error === "network") {
-            wanted = false; toast(t("Dictation needs an internet connection."));
+            wanted = false; toast(t("Dictation needs an internet connection. Use “Record a voice note” instead: it works offline."));
           } else if (ev.error === "no-speech") {
             if (++quiet >= 3) { wanted = false; toast(t("Didn't hear anything. Try again closer to the microphone.")); }
           } else if (ev.error !== "aborted") {
