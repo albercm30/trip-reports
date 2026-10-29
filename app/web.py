@@ -39,13 +39,31 @@ JS_STRINGS = ["Saving…", "Saved", "Not saved", "Unsaved changes", "Copied.", "
 templates.env.globals.update(settings=settings, plans=plans, UI_LANGS=UI_LANGS)
 
 
+OUTINGS = {
+    "Trips": "Outings", "Trip": "Outing", "trips": "outings", "New trip": "New outing",
+    "Start your own trip": "Start your first outing", "Untitled trip": "Untitled outing", "All trips": "All outings",
+    "Trip name": "Outing name", "Delete trip": "Delete outing", "Trip reports": "Outing reports",
+    "Write your first real trip": "Write your first real outing", "Insights need a few trips": "Insights need a few outings",
+    "no trips": "no outings", "Recorded on only one trip": "Recorded on only one outing",
+    "Built from {n} trips you've logged.": "Built from {n} outings you've logged.",
+    "Striped months have no trips, and months with only one or two trips can swing a lot.":
+        "Striped months have no outings, and months with only one or two outings can swing a lot.",
+    "Delete this trip and everything in it? This can't be undone.":
+        "Delete this outing and everything in it? This can't be undone.",
+}
+
+
 def render(request: Request, name: str, ctx: dict | None = None, *, user=None, status: int = 200):
     lang = detect_lang(request, user)
+    single = bool(getattr(getattr(user, "org", None), "single_day", False))
     flash = request.cookies.get(FLASH)
     data = {
         "request": request, "lang": lang, "user": user, "org": getattr(user, "org", None),
         "csrf": csrf_token(request), "app_name": settings.name_for(lang),
         "_": lambda text, **kw: translate(lang, text, **kw),
+        # wording that follows the company's activity: "trips" or single-day "outings"
+        "t_": lambda text, **kw: translate(lang, OUTINGS.get(text, text) if single else text, **kw),
+        "single_day": single,
         "flash": translate(lang, unquote(flash)) if flash else None,
         "js_strings": {k: translate(lang, k) for k in JS_STRINGS} if lang != "en" else {},
     }

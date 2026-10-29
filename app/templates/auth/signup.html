@@ -8,6 +8,10 @@
   <form method="post" action="/signup" class="panel">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <label class="field"><span>{{ _('Company name') }}</span><input type="text" name="company" value="{{ form.company or '' }}" required maxlength="120" autocomplete="organization" placeholder="Sierra Morena Wildlife Tours"></label>
+    <label class="field"><span>{{ _('What do you run?') }}</span><select name="activity">
+      <option value="single" {% if form.activity == 'single' %}selected{% endif %}>{{ _('Single-day outings (boat trips, excursions)') }}</option>
+      <option value="multi" {% if form.activity == 'multi' %}selected{% endif %}>{{ _('Trips of several days') }}</option>
+    </select><small>{{ _('You can change this later in Company.') }}</small></label>
     <label class="field"><span>{{ _('Your name') }}</span><input type="text" name="name" value="{{ form.name or '' }}" required maxlength="120" autocomplete="name"></label>
     <label class="field"><span>{{ _('Email') }}</span><input type="email" name="email" value="{{ form.email or '' }}" required autocomplete="email"></label>
     <label class="field"><span>{{ _('Password') }}</span><input type="password" name="password" required minlength="10" autocomplete="new-password"><small>{{ _('At least 10 characters.') }}</small></label>

@@ -37,20 +37,26 @@
   <div class="plans">
     <div class="plan">
       <h3>{{ _('Starter') }}</h3>
+      {% if settings.show_prices %}
       <p class="price">€{{ plans.starter.month_eur }} <small>/ {{ _('month') }}</small></p>
       <p class="hint" style="margin:0">{{ _('or €{y} a year (2 months free)', y=plans.starter.year_eur) }}</p>
+      {% else %}<p class="price blurred" aria-hidden="true">€00 <small>/ {{ _('month') }}</small></p>
+      <p class="hint" style="margin:0">{{ _('Founding-company price: coming soon') }}</p>{% endif %}
       <ul><li>{{ _('Unlimited trips and reports') }}</li><li>{{ _('Up to {n} guides', n=plans.starter.seats) }}</li><li>{{ _('Season insights') }}</li><li>{{ _('Branded reports and share links') }}</li></ul>
       <a class="btn" href="/signup">{{ _('Start free trial') }}</a>
     </div>
     <div class="plan featured">
       <h3>{{ _('Pro') }}</h3>
+      {% if settings.show_prices %}
       <p class="price">€{{ plans.pro.month_eur }} <small>/ {{ _('month') }}</small></p>
       <p class="hint" style="margin:0">{{ _('or €{y} a year (2 months free)', y=plans.pro.year_eur) }}</p>
+      {% else %}<p class="price blurred" aria-hidden="true">€00 <small>/ {{ _('month') }}</small></p>
+      <p class="hint" style="margin:0">{{ _('Founding-company price: coming soon') }}</p>{% endif %}
       <ul><li>{{ _('Everything in Starter') }}</li><li>{{ _('Up to {n} guides', n=plans.pro.seats) }}</li><li>{{ _('Priority support') }}</li></ul>
       <a class="btn primary" href="/signup">{{ _('Start free trial') }}</a>
     </div>
   </div>
-  <p class="hint" style="margin-top:12px">{{ _('Prices exclude VAT where it applies. Cancel any time.') }}</p>
+  <p class="hint" style="margin-top:12px">{% if settings.show_prices %}{{ _('Prices exclude VAT where it applies. Cancel any time.') }}{% else %}{{ _('During the pilot phase the app is free for founding companies.') }}{% endif %}</p>
 </div></section>
 
 <section class="band"><div class="wide faq">

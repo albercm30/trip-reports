@@ -167,3 +167,12 @@ def test_cancel_at_period_end_is_shown(owner):
     body, sig = _signed({"id": "evt_c3", "type": "customer.subscription.updated", "data": {"object": sub}})
     owner.post("/billing/webhook", content=body, headers={"stripe-signature": sig})
     assert _org().cancel_at is None and "Renews on" in owner.get("/app/billing").text
+
+
+def test_prices_are_hidden_during_the_pilot(client):
+    from .conftest import signup
+    page = client.get("/").text
+    assert "€29" not in page and "€59" not in page and "blurred" in page
+    signup(client)
+    page = client.get("/app/billing").text
+    assert "€29" not in page and "/app/billing/checkout" not in page

@@ -39,6 +39,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
         "has_marine_example": any(t.is_demo and t.intro and "La Palma" in t.location for t in trips),
         "has_marine_season": sum(1 for t in trips if t.is_demo and not t.intro and "La Palma" in t.location) > 1,
         "welcome": request.query_params.get("welcome") == "1", "nav": "trips",
+        "last_real": next((t for t in trips if not t.is_demo), None),
     }, user=user)
 
 

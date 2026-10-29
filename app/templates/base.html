@@ -7,17 +7,23 @@
 <title>{% block title %}{{ app_name }}{% endblock %}</title>
 <meta name="description" content="{{ _('Turn wildlife guides\' field notes into polished trip reports for their guests.') }}">
 <link rel="icon" href="/static/img/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
+<meta name="theme-color" content="#2E6A5C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ app_name }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/app.css?v=3">
-<link rel="stylesheet" href="/static/css/report.css?v=1">
+<link rel="stylesheet" href="/static/css/app.css?v=4">
+<link rel="stylesheet" href="/static/css/report.css?v=2">
 {% block head %}{% endblock %}
 </head>
 <body class="{% block bodyclass %}{% endblock %}">
 {% block body %}{% endblock %}
 <div class="toast" id="toast" role="status" aria-live="polite" {% if not flash %}hidden{% endif %}>{{ flash or '' }}</div>
 <script type="application/json" id="i18n">{{ js_strings|tojson }}</script>
-<script src="/static/js/app.js?v=3" defer></script>
+<script src="/static/js/app.js?v=4" defer></script>
 </body>
 </html>

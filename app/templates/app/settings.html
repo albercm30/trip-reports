@@ -9,6 +9,10 @@
   <fieldset {% if not user.is_owner %}disabled{% endif %} style="border:0;padding:0;margin:0">
   <div class="panel">
     <label class="field"><span>{{ _('Company name') }}</span><input type="text" name="name" value="{{ org.name }}" maxlength="120"></label>
+    <label class="field"><span>{{ _('Activity') }}</span><select name="single_day">
+      <option value="1" {% if org.single_day %}selected{% endif %}>{{ _('Single-day outings (boat trips, excursions)') }}</option>
+      <option value="0" {% if not org.single_day %}selected{% endif %}>{{ _('Trips of several days') }}</option>
+    </select></label>
     <div class="grid2">
       <label class="field"><span>{{ _('Report language') }}</span><select name="report_lang">{% for k, v in REPORT_LANGS.items() %}<option value="{{ k }}" {% if org.report_lang == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select><small>{{ _('Drafts and report labels use this language.') }}</small></label>
       <label class="field"><span>{{ _('Writing style') }}</span><select name="tone">
@@ -24,6 +28,7 @@
     <label class="field" id="targets"><span>{{ _('Target species') }}</span><input type="text" name="targets" value="{{ org.targets }}" placeholder="{{ _('Iberian Lynx, Spanish Imperial Eagle, Eurasian Eagle-Owl') }}"><small>{{ _('The animals your guests come for, separated by commas. Insights shows how often you find them.') }}</small></label>
     <label class="field"><span>{{ _('Sign-off') }}</span><textarea name="signoff" rows="3" placeholder="{{ _('Thank you for travelling with us.') }}&#10;Alberto">{{ org.signoff }}</textarea><small>{{ _('Goes at the end of every report, exactly as written.') }}</small></label>
     <label class="check"><input type="checkbox" name="show_credit" value="1" {% if org.show_credit %}checked{% endif %}> <span>{{ _('Show “Report made with {app}” in the footer', app=app_name) }}</span></label>
+    <label class="check"><input type="checkbox" name="species_photos" value="1" {% if org.species_photos %}checked{% endif %}> <span>{{ _('Show reference photos of each species (free-licence photos from Wikimedia Commons, with credits)') }}</span></label>
     <label class="check"><input type="checkbox" name="data_sharing" value="1" {% if org.data_sharing %}checked{% endif %}> <span>{{ _('Allow anonymised sighting data (species, date and area, never guests or notes) to be used for wildlife research and forecasts.') }}</span></label>
   </div>
   </fieldset>

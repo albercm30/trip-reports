@@ -79,7 +79,8 @@ class Settings:
     support_email: str = ""
     legal_name: str = ""
     legal_address: str = ""
-    legal_id: str = ""  # NIF/CIF, shown in the legal notice when set
+    legal_id: str = ""
+    show_prices: bool = False  # SHOW_PRICES=1 shows plan prices; hidden (blurred) during the pilot  # NIF/CIF, shown in the legal notice when set
     admin_emails: tuple = ()  # who can see /app/admin (pilot accounts)
 
     def name_for(self, lang: str) -> str:
@@ -169,6 +170,7 @@ def load_settings() -> Settings:
         legal_name=_env("LEGAL_NAME"),
         legal_address=_env("LEGAL_ADDRESS"),
         legal_id=_env("LEGAL_ID"),
+        show_prices=_bool("SHOW_PRICES", False),
         admin_emails=tuple(e.strip().lower() for e in _env("ADMIN_EMAILS").split(",") if e.strip()),
     )
 

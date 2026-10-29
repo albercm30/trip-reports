@@ -11,6 +11,8 @@
   {% set who = [(L.guided_by ~ ' ' ~ trip.guides) if trip.guides else '', (trip.guests ~ ' ' ~ L.guests) if trip.guests else '']|select|join('. ') %}
   {% if who %}<p class="r-meta">{{ who }}</p>{% endif %}
 
+  {% if R.cover %}<figure class="r-cover"><img src="/media/{{ R.cover.storage_key }}{{ media_qs }}" alt="{{ R.cover.caption }}">{% if R.cover.caption %}<figcaption>{{ R.cover.caption }}</figcaption>{% endif %}</figure>{% endif %}
+
   {% if trip.days %}
   <div class="r-nums">
     <div><b>{{ trip.days|length }}</b>{{ L.day_one if trip.days|length == 1 else L.days }}</div>
@@ -29,15 +31,27 @@
       <h2>{{ d.place or (L.day ~ ' ' ~ loop.index) }}<small>{{ L.day }} {{ loop.index }}{% if d.date %}, {{ R.day_label(d.date) }}{% endif %}</small></h2>
     </div>
     {{ d.narrative|nl2p }}
-    {% if d.photos %}
+    {% set dphotos = d.photos|reject('sameas', R.cover)|list %}
+    {% if dphotos %}
     <div class="r-photos">
-      {% for p in d.photos %}
+      {% for p in dphotos %}
       <figure><img src="/media/{{ p.storage_key }}{{ media_qs }}" alt="{{ p.caption }}" loading="lazy">{% if p.caption %}<figcaption>{{ p.caption }}</figcaption>{% endif %}</figure>
       {% endfor %}
     </div>
     {% endif %}
   </section>
   {% endfor %}
+
+  {% if R.featured %}
+  <h2 class="r-sec">{{ L.spotlight }}</h2>
+  <div class="r-spot">
+    {% for r in R.featured %}{% set im = R.pics[r.sci] %}
+    <figure><img src="{{ im.url }}" alt="{{ r.name }}" loading="lazy" referrerpolicy="no-referrer">
+      <figcaption><b>{{ r.name }}{% if r.star %} <span class="st">★</span>{% endif %}</b>{% if r.sci %}<i>{{ r.sci }}</i>{% endif %}</figcaption></figure>
+    {% endfor %}
+  </div>
+  <p class="r-key">{{ L.ref_photo }}</p>
+  {% endif %}
 
   {% if R.rows %}
   <h2 class="r-sec">{{ L.tally }}</h2>
@@ -49,7 +63,7 @@
       {% if R.show_groups %}<tr class="grp"><td colspan="{{ trip.days|length + 2 }}">{{ gname }}</td></tr>{% endif %}
       {% for r in grows %}
       <tr>
-        <td class="nm">{{ r.name }}{% if r.star %} <span class="st" aria-label="{{ L.highlights }}">★</span>{% endif %}{% if r.unsure %} <span class="q">?</span>{% endif %}{% if r.sci %}<i>{{ r.sci }}</i>{% endif %}</td>
+        <td class="nm">{% if R.pics.get(r.sci) %}<img class="r-th" src="{{ R.pics[r.sci].url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% elif R.pics %}<span class="r-th"></span>{% endif %}{{ r.name }}{% if r.star %} <span class="st" aria-label="{{ L.highlights }}">★</span>{% endif %}{% if r.unsure %} <span class="q">?</span>{% endif %}{% if r.sci %}<i>{{ r.sci }}</i>{% endif %}</td>
         {% for d in trip.days %}{% set c = r.cells.get(loop.index0) %}
           {% if not c %}<td></td>
           {% elif c.heard and not c.count %}<td class="c h">{{ L.heard }}</td>
@@ -68,6 +82,11 @@
 
   {% if trip.summary %}<section class="r-day">{{ trip.summary|nl2p }}</section>{% endif %}
   {% if rorg.signoff %}<p class="r-sign">{{ rorg.signoff }}</p>{% endif %}
+  {% if R.credited %}
+  <div class="r-credits"><p><b>{{ L.credits }}</b></p>
+    <ul>{% for im in R.credited %}<li><i>{{ im.sci }}</i>: {{ L.photo_by }} {{ im.credit }}, <a href="{{ im.page }}" rel="noopener nofollow" target="_blank">{{ im.license }}</a>, Wikimedia Commons</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
   {% set foot = [rorg.name, rorg.website]|select|join(' · ') %}
   {% if foot or rorg.show_credit %}<footer class="r-foot"><span>{{ foot }}</span>{% if rorg.show_credit %}<span>{{ L.made }}</span>{% endif %}</footer>{% endif %}
 </article>

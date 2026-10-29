@@ -10,7 +10,7 @@
     <form method="post" action="/logout" class="no-print"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small ghost">{{ _('Log out') }}</button></form>
   </div>
   <nav class="nav" aria-label="{{ _('Main') }}">
-    <a href="/app" {% if nav == 'trips' %}aria-current="page"{% endif %}>{{ _('Trips') }}</a>
+    <a href="/app" {% if nav == 'trips' %}aria-current="page"{% endif %}>{{ t_('Trips') }}</a>
     <a href="/app/insights" {% if nav == 'insights' %}aria-current="page"{% endif %}>{{ _('Insights') }}</a>
     <a href="/app/team" {% if nav == 'team' %}aria-current="page"{% endif %}>{{ _('Team') }}</a>
     <a href="/app/settings" {% if nav == 'settings' %}aria-current="page"{% endif %}>{{ _('Company') }}</a>

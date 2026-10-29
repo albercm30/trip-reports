@@ -38,6 +38,10 @@ class Organization(Base):
     targets: Mapped[str] = mapped_column(Text, default="")
     logo_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     data_sharing: Mapped[bool] = mapped_column(Boolean, default=False)
+    # single-day outings (boat trips, excursions): "Salidas" wording, one day per outing, quick repeat
+    single_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # reference photos of each species from Wikimedia Commons in guest reports
+    species_photos: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     plan: Mapped[str] = mapped_column(String(16), default="trial")  # trial | starter | pro
     billing_status: Mapped[str] = mapped_column(String(24), default="trialing")
@@ -204,6 +208,18 @@ class Blob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class SpeciesImage(Base):
+    """A free-licence reference photo for a species, from Wikimedia Commons (cached; ok=False means none found)."""
+    __tablename__ = "species_images"
+    sci: Mapped[str] = mapped_column(String(160), primary_key=True)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    url: Mapped[str] = mapped_column(Text, default="")
+    credit: Mapped[str] = mapped_column(String(200), default="")
+    license: Mapped[str] = mapped_column(String(80), default="")
+    page: Mapped[str] = mapped_column(Text, default="")
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class StripeEvent(Base):
     __tablename__ = "stripe_events"
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
@@ -211,5 +227,5 @@ class StripeEvent(Base):
 
 
 __all__ = ["Organization", "User", "AuthSession", "Invite", "PasswordReset", "Trip", "Day",
-           "Sighting", "Photo", "AIUsage", "Blob", "StripeEvent", "new_id", "utcnow", "aware",
+           "Sighting", "Photo", "AIUsage", "Blob", "SpeciesImage", "StripeEvent", "new_id", "utcnow", "aware",
            "UniqueConstraint"]

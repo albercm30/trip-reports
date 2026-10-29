@@ -28,7 +28,7 @@ def billing_page(request: Request, db: Session = Depends(get_db), user: User = D
             svc.sync_checkout(db, org, sid)
         except Exception as e:  # the webhook will still catch up
             log.warning("Could not confirm checkout %s: %s", sid, e)
-    return render(request, "app/billing.html", {
+    return render(request, "app/billing.html", {"show_prices": settings.show_prices or settings.is_admin(user.email), 
         "nav": "billing", "can_write": plans.can_write(org), "trial_left": plans.trial_days_left(org),
         "trial_active": plans.trial_active(org), "ai_used": plans.ai_used_this_month(db, org),
         "plan": plans.plan_of(org), "PLANS": plans.PLANS, "done": request.query_params.get("done") == "1",

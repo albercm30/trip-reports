@@ -39,6 +39,13 @@ def fresh_db():
     yield
 
 
+@pytest.fixture(autouse=True)
+def no_photo_lookups(monkeypatch):
+    """Tests never reach Wikipedia; tests of the lookup itself patch httpx instead."""
+    from app.services import species_images
+    monkeypatch.setattr(species_images, "lookup", lambda sci, timeout=4.0: None)
+
+
 class Client(TestClient):
     """Test client that sends the CSRF token like the real forms do."""
 
@@ -58,8 +65,10 @@ def client():
     return Client(app)
 
 
-def signup(c: Client, email="owner@example.com", company="Sierra Tours", name="Ana Guide", password="correct horse 1"):
-    r = c.post_form("/signup", {"company": company, "name": name, "email": email, "password": password, "agree": "1"})
+def signup(c: Client, email="owner@example.com", company="Sierra Tours", name="Ana Guide", password="correct horse 1",
+           activity="multi"):
+    r = c.post_form("/signup", {"company": company, "name": name, "email": email, "password": password, "agree": "1",
+                                "activity": activity})
     assert r.status_code == 303, r.text
     return r
 

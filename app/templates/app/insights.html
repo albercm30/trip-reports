@@ -4,16 +4,16 @@
 {% if D.n_trips < 2 %}
   <h1 class="page">{{ _('Insights') }}</h1>
   <div class="empty">
-    <strong>{{ _('Insights need a few trips') }}</strong>
+    <strong>{{ t_('Insights need a few trips') }}</strong>
     <p>{{ _('Once you\'ve logged a handful of trips, you\'ll see how often you find each species, the best months for them, and honest lines you can use in your marketing.') }}</p>
     {% if can_write %}<form method="post" action="/app/demo/season"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ _('Load a demo season') }}</button></form>{% endif %}
   </div>
 {% else %}
   <h1 class="page">{{ _('Your season in numbers') }}</h1>
-  <p class="lede">{{ _('Built from {n} trips you\'ve logged.', n=D.n_trips) }}{% if D.has_demo %} <span class="tag ochre">{{ _('Includes demo data') }}</span>{% endif %}</p>
+  <p class="lede">{{ t_('Built from {n} trips you\'ve logged.', n=D.n_trips) }}{% if D.has_demo %} <span class="tag ochre">{{ _('Includes demo data') }}</span>{% endif %}</p>
   <div class="tiles">
-    <div class="tile"><b>{{ D.n_trips }}</b><span>{{ _('trips') }}</span></div>
-    <div class="tile"><b>{{ D.days }}</b><span>{{ _('days in the field') }}</span></div>
+    <div class="tile"><b>{{ D.n_trips }}</b><span>{{ t_('trips') }}</span></div>
+    {% if D.days != D.n_trips %}<div class="tile"><b>{{ D.days }}</b><span>{{ _('days in the field') }}</span></div>{% endif %}
     <div class="tile"><b>{{ D.guests }}</b><span>{{ _('guests') }}</span></div>
     <div class="tile"><b>{{ D.species|length }}</b><span>{{ _('species recorded') }}</span></div>
   </div>
@@ -41,14 +41,14 @@
     <noscript><p class="hint">{{ _('Pick a species from the list above.') }}</p></noscript>
     <div class="months" role="img" aria-label="{{ _('Share of trips each month that recorded {sp}', sp=sel.name) }}">
       {% for b in bars %}
-        {% if b.pct is none %}<div class="mcol" title="{{ b.name }}: {{ _('no trips') }}"><em>&nbsp;</em><div class="mbar none" style="height:calc(100% - 18px)"></div></div>
+        {% if b.pct is none %}<div class="mcol" title="{{ b.name }}: {{ t_('no trips') }}"><em>&nbsp;</em><div class="mbar none" style="height:calc(100% - 18px)"></div></div>
         {% else %}<div class="mcol" title="{{ b.name }}: {{ _('{k} of {n} trips', k=b.hits, n=b.trips) }}"><em>{{ b.pct }}%</em><div class="mbar" style="height:calc((100% - 18px) * {{ [b.pct, 2]|max / 100 }})"></div></div>{% endif %}
       {% endfor %}
     </div>
     <div class="mlabels" aria-hidden="true">{% for b in bars %}<span>{{ b.label }}</span>{% endfor %}</div>
     <p class="hint" style="margin:12px 0 0">
       {% if best %}{{ _('Your best month for {sp} so far is {m}: recorded on {p}% of trips.', sp=sel.name, m=best[0], p=best[1]) }}{% else %}{{ _('No records of {sp} yet.', sp=sel.name) }}{% endif %}
-      {{ _('Striped months have no trips, and months with only one or two trips can swing a lot.') }}
+      {{ t_('Striped months have no trips, and months with only one or two trips can swing a lot.') }}
     </p>
   </div>
   {% endif %}
@@ -78,7 +78,7 @@
   </div>
 
   {% if rare %}
-  <h2 class="sec">{{ _('Recorded on only one trip') }}</h2>
+  <h2 class="sec">{{ t_('Recorded on only one trip') }}</h2>
   <p class="hint" style="margin-top:-4px">{{ _('Your rarer records. Worth a mention in trip descriptions, but don\'t promise them.') }}</p>
   <div class="chips">{% for s in rare %}<span>{{ s.name }}</span>{% endfor %}</div>
   {% endif %}

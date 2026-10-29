@@ -1,6 +1,7 @@
 /* The guest-facing report. Always light, so it prints and emails the same everywhere. */
 .rpt{--acc:#2E6A5C;background:#fff;color:#1C2420;font-family:"Literata",Georgia,serif;line-height:1.7;font-size:17px;max-width:740px;margin:0 auto;padding:44px 32px 30px;border-radius:6px;color-scheme:light}
 .rpt *{box-sizing:border-box}
+.rpt{border-top:6px solid var(--acc)}
 .rpt .r-top{display:flex;align-items:center;gap:14px;margin:0 0 30px;font-family:"Instrument Sans",system-ui,sans-serif}
 .rpt .r-logo{max-height:56px;max-width:180px;width:auto}
 .rpt .r-co{font-weight:700;font-size:.95rem;color:var(--acc);display:flex;align-items:center;gap:10px;margin:0}
@@ -41,13 +42,32 @@
 .rpt .r-key{font-family:"Instrument Sans",system-ui,sans-serif;font-size:.8rem;color:#56615A;margin-top:10px}
 .rpt .r-sign{margin-top:28px;white-space:pre-line}
 .rpt .r-foot{margin-top:48px;padding-top:14px;border-top:1px solid #E4E8E3;font-family:"Instrument Sans",system-ui,sans-serif;font-size:.8rem;color:#737E77;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-@media (max-width:560px){.rpt{font-size:16px;padding:28px 18px}.rpt h1{font-size:1.8rem}.rpt .r-dn{font-size:1.9rem}}
+.rpt .r-cover{margin:26px -32px 0}
+.rpt .r-cover img{aspect-ratio:16/9;border-radius:0;max-height:440px}
+.rpt .r-cover figcaption{padding:0 32px}
+.rpt .r-spot{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin:14px 0 0}
+.rpt .r-spot figure{background:#F5F7F3;border-radius:6px;overflow:hidden;break-inside:avoid}
+.rpt .r-spot img{aspect-ratio:4/3;border-radius:0}
+.rpt .r-spot figcaption{padding:8px 10px 10px;margin:0;color:#1C2420;font-size:.86rem}
+.rpt .r-spot figcaption b{display:block;font-weight:600}
+.rpt .r-spot figcaption i{display:block;color:#69746D;font-size:.78rem}
+.rpt .r-th{display:block;width:34px;height:34px;border-radius:50%;object-fit:cover;float:left;margin:1px 9px 0 0;background:#EEF0EC}
+.rpt .r-credits{margin-top:36px;font-family:"Instrument Sans",system-ui,sans-serif;font-size:.74rem;color:#737E77;line-height:1.45}
+.rpt .r-credits p{margin:0 0 4px}
+.rpt .r-credits ul{margin:0;padding-left:16px}
+.rpt .r-credits a{color:inherit}
+@media (max-width:560px){.rpt .r-cover{margin:22px -18px 0}.rpt .r-cover figcaption{padding:0 18px}.rpt .r-spot{grid-template-columns:repeat(2,1fr);gap:10px}.rpt{font-size:16px;padding:28px 18px}.rpt h1{font-size:1.8rem}.rpt .r-dn{font-size:1.9rem}}
 @media print{
   @page{margin:16mm 14mm}
   .rpt{padding:0;max-width:none;font-size:11.5pt}
   .rpt figure,.rpt tr{break-inside:avoid}
   .rpt h2,.rpt .r-dayhead{break-after:avoid}
   .rpt .r-tscroll{overflow:visible}
+  .rpt{border-top-width:4px}
+  .rpt .r-cover{margin:18px 0 0}.rpt .r-cover img{max-height:95mm}
+  .rpt .r-spot{grid-template-columns:repeat(3,1fr)}
+  .rpt .r-credits a{text-decoration:none}
+  .rpt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* standalone report page (guest link, example, print) */
 body.report-page{background:#EEF1EC;margin:0;padding:24px 12px 40px}

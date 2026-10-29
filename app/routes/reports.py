@@ -13,7 +13,7 @@ from ..db import get_db
 from ..deps import NotFound, current_user, get_trip, writer
 from ..models import Organization, Photo, Trip, User
 from ..security import user_from_request
-from ..services import storage
+from ..services import species_images, storage
 from ..services.reportdata import build_report
 from ..web import redirect, render
 
@@ -24,7 +24,8 @@ router = APIRouter()
 def print_view(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     trip = get_trip(db, user, trip_id)
     return render(request, "report/page.html", {"trip": trip, "rorg": user.org, "print": True, "media_qs": "",
-                                                "R": build_report(trip, user.org, settings.name_for(trip.report_lang))}, user=user)
+                                                "R": build_report(trip, user.org, settings.name_for(trip.report_lang),
+                                                                  species_images.for_trip(db, trip, user.org))}, user=user)
 
 
 @router.post("/app/trips/{trip_id}/share")
@@ -53,7 +54,8 @@ def public_report(token: str, request: Request, db: Session = Depends(get_db)):
         raise NotFound()
     org = db.get(Organization, trip.org_id)
     resp = render(request, "report/page.html", {"trip": trip, "rorg": org, "public": True, "media_qs": f"?s={token}",
-                                                "R": build_report(trip, org, settings.name_for(trip.report_lang))})
+                                                "R": build_report(trip, org, settings.name_for(trip.report_lang),
+                                                                  species_images.for_trip(db, trip, org))})
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
     resp.headers["Referrer-Policy"] = "no-referrer"
     return resp

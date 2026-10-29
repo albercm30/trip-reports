@@ -45,6 +45,9 @@ async def save_settings(request: Request, db: Session = Depends(get_db), user: U
     org.targets = str(f.get("targets", ""))[:1000]
     org.show_credit = f.get("show_credit") == "1"
     org.data_sharing = f.get("data_sharing") == "1"
+    org.species_photos = f.get("species_photos") == "1"
+    if "single_day" in f:
+        org.single_day = f.get("single_day") == "1"
     db.commit()
     return ok_or_redirect(request, "/app/settings", "Saved.")
 

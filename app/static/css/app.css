@@ -244,3 +244,7 @@ select.dictate-lang{width:auto;min-height:36px;padding:4px 8px;font-size:.85rem;
 .problems{background:var(--warn-bg);border-left:3px solid var(--warn);border-radius:10px;padding:10px 14px;margin:8px 0 12px;font-size:.92rem}
 .problems ul{margin:4px 0 0;padding-left:18px}
 .problems li{margin:2px 0}
+
+.price.blurred{filter:blur(7px);user-select:none;opacity:.75}
+.install{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:16px 0 0}
+.install[hidden]{display:none}

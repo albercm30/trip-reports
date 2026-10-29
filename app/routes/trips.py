@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import plans
@@ -15,7 +16,7 @@ from ..deps import current_user, get_day, get_trip, writer
 from ..i18n import translate
 from ..models import Day, Photo, Sighting, Trip, User
 from ..security import ai_limiter
-from ..services import verify, drafting, storage
+from ..services import verify, drafting, storage, species_images
 from ..services.reportdata import REPORT_LANGS, build_report, build_tally, report_checks
 from ..web import ok_or_redirect, redirect, render, wants_json
 
@@ -53,12 +54,43 @@ def _flash_for(user: User, result: dict, base: str | None = None) -> str:
 
 
 # ---------------------------------------------------------------- trips
+def _last_trip(db: Session, org_id: str) -> Trip | None:
+    """The company's most recent real trip (demo trips are ignored)."""
+    return db.scalar(select(Trip).where(Trip.org_id == org_id, Trip.is_demo.is_(False))
+                     .order_by(Trip.start_date.desc().nulls_last(), Trip.created_at.desc()).limit(1))
+
+
+def _new_outing(db: Session, user: User, like: Trip | None) -> Trip:
+    """A single-day outing dated today, with the details guides repeat every time already filled in."""
+    t = Trip(org_id=user.org_id, guides=user.name, start_date=date.today(), created_by=user.id)
+    place = ""
+    if like:
+        t.title, t.location, t.lang = like.title, like.location, like.lang
+        t.guides = like.guides or user.name
+        place = like.days[0].place if like.days else ""
+    t.days.append(Day(position=0, date=date.today(), place=place))
+    db.add(t)
+    db.commit()
+    return t
+
+
 @router.post("")
 def create_trip(request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    if user.org.single_day:  # straight to today's notes, with the usual details filled in
+        t = _new_outing(db, user, _last_trip(db, user.org_id))
+        return redirect(f"/app/trips/{t.id}?tab=days&day={t.days[0].id}#day-{t.days[0].id}")
     t = Trip(org_id=user.org_id, guides=user.name, start_date=date.today(), created_by=user.id)
     db.add(t)
     db.commit()
     return redirect(f"/app/trips/{t.id}?tab=trip&new=1")
+
+
+@router.post("/{trip_id}/repeat")
+def repeat_trip(trip_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(writer)):
+    """Same title, area, guides, place and report language, dated today; notes and sightings start empty."""
+    t = _new_outing(db, user, get_trip(db, user, trip_id))
+    return redirect(f"/app/trips/{t.id}?tab=days&day={t.days[0].id}#day-{t.days[0].id}",
+                    "New outing ready: same details, today's date. Add your notes.")
 
 
 @router.get("/{trip_id}")
@@ -76,7 +108,7 @@ def trip_page(trip_id: str, request: Request, db: Session = Depends(get_db), use
     if tab == "trip":
         ctx["trip_checks"] = verify.trip_text_problems(trip, len(build_tally(trip))) if (trip.intro or trip.summary) else []
     if tab == "report":
-        ctx["R"] = build_report(trip, org, settings.name_for(trip.report_lang))
+        ctx["R"] = build_report(trip, org, settings.name_for(trip.report_lang), species_images.for_trip(db, trip, org))
         ctx["checks"] = report_checks(trip)
         ctx["ready"] = not any(c[0] == "warn" for c in ctx["checks"])
         ctx["rorg"] = org

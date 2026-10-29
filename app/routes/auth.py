@@ -50,9 +50,9 @@ def signup_form(request: Request, user=Depends(optional_user)):
 
 @router.post("/signup")
 def signup(request: Request, db: Session = Depends(get_db), company: str = Form(""), name: str = Form(""),
-           email: str = Form(""), password: str = Form(""), agree: str = Form("")):
+           email: str = Form(""), password: str = Form(""), agree: str = Form(""), activity: str = Form("single")):
     email = email.strip().lower()
-    form = {"company": company, "name": name, "email": email}
+    form = {"company": company, "name": name, "email": email, "activity": activity}
     err = None
     if not signup_limiter.hit(client_ip(request)):
         err = "Too many sign-ups from this connection. Try again later."
@@ -70,6 +70,7 @@ def signup(request: Request, db: Session = Depends(get_db), company: str = Form(
         return render(request, "auth/signup.html", {"form": form, "error": err}, status=400)
     lang = detect_lang(request)
     org = Organization(name=company.strip()[:120], report_lang=lang, plan="trial", billing_status="trialing",
+                       single_day=activity != "multi",
                        trial_ends_at=plans.new_trial_end(settings.trial_days))
     user = User(org=org, email=email, name=name.strip()[:120], password_hash=hash_password(password), role="owner",
                 ui_lang=lang)

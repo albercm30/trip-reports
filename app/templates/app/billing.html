@@ -36,17 +36,22 @@
 
 {% if org.plan == 'trial' or org.billing_status in ('canceled', 'incomplete_expired', 'unpaid') %}
 <h2 class="sec">{{ _('Choose a plan') }}</h2>
-{% if not settings.billing_enabled or not available %}
+{% if not show_prices %}
+  <p class="panel" style="margin:0 0 12px">{{ _('During the pilot phase the app is free for founding companies. Write to us and we\'ll turn on your pilot account, with everything included and no time limit.') }}{% if settings.support_email %} <a href="mailto:{{ settings.support_email }}">{{ settings.support_email }}</a>{% endif %}</p>
+{% elif not settings.billing_enabled or not available %}
   <p class="error">{{ _('Payments aren\'t set up yet. Contact us to subscribe.') }}{% if settings.support_email %} <a href="mailto:{{ settings.support_email }}">{{ settings.support_email }}</a>{% endif %}</p>
 {% endif %}
 <div class="plans">
   {% for key in ('starter', 'pro') %}{% set p = PLANS[key] %}
   <div class="plan {% if key == 'pro' %}featured{% endif %}">
     <h3>{{ _('Starter') if key == 'starter' else _('Pro') }}</h3>
+    {% if show_prices %}
     <p class="price">€{{ p.month_eur }} <small>/ {{ _('month') }}</small></p>
     <p class="hint" style="margin:0">{{ _('or €{y} a year (2 months free)', y=p.year_eur) }}</p>
+    {% else %}<p class="price blurred" aria-hidden="true">€00 <small>/ {{ _('month') }}</small></p>
+    <p class="hint" style="margin:0">{{ _('Founding-company price: coming soon') }}</p>{% endif %}
     <ul><li>{{ _('Unlimited trips and reports') }}</li><li>{{ _('Up to {n} guides', n=p.seats) }}</li><li>{{ _('Season insights') }}</li></ul>
-    {% if key in available %}
+    {% if key in available and show_prices %}
     <form method="post" action="/app/billing/checkout" class="row">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="plan" value="{{ key }}">
       {% if 'month' in intervals %}<button class="btn {{ 'primary' if key == 'pro' else '' }}" name="interval" value="month">{{ _('Monthly') }}</button>{% endif %}
@@ -56,6 +61,6 @@
   </div>
   {% endfor %}
 </div>
-<p class="hint" style="margin-top:12px">{{ _('Payments are handled securely by Stripe. Prices exclude VAT where it applies. Cancel any time.') }}</p>
+{% if show_prices %}<p class="hint" style="margin-top:12px">{{ _('Payments are handled securely by Stripe. Prices exclude VAT where it applies. Cancel any time.') }}</p>{% endif %}
 {% endif %}
 {% endblock %}

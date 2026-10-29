@@ -377,3 +377,43 @@ def test_whale_watching_example_and_season(owner):
     page = owner.get("/app/insights").text
     assert "Short-finned Pilot Whale" in page or "Calderón tropical" in page
     assert "Pilot" in owner.get("/example?kind=marine").text
+
+
+def test_single_day_outings_wording_quick_create_and_repeat(client):
+    from app.db import SessionLocal
+    from app.models import Trip
+    from .conftest import signup
+    signup(client, activity="single")
+    page = client.get("/app").text
+    assert "Outings" in page and "Start your first outing" in page
+    r = client.post_form("/app/trips")
+    assert "tab=days" in r.headers["location"]
+    tid = r.headers["location"].split("/app/trips/")[1].split("?")[0]
+    with SessionLocal() as db:
+        t = db.get(Trip, tid)
+        assert len(t.days) == 1 and t.days[0].date == t.start_date
+        day_id = t.days[0].id
+    client.post_form(f"/app/trips/{tid}", {"title": "Whale watching · morning", "location": "La Palma"})
+    client.post_form(f"/app/trips/{tid}/days/{day_id}", {"place": "Off Tazacorte", "notes": "pilot whales x20"})
+    assert "Repeat last outing" in client.get("/app").text
+    r = client.post_form(f"/app/trips/{tid}/repeat")
+    nid = r.headers["location"].split("/app/trips/")[1].split("?")[0]
+    with SessionLocal() as db:
+        n = db.get(Trip, nid)
+        assert n.title == "Whale watching · morning" and n.location == "La Palma"
+        assert n.days[0].place == "Off Tazacorte" and n.days[0].notes == "" and not n.days[0].sightings
+    # the next new outing copies the usual details too
+    r = client.post_form("/app/trips")
+    with SessionLocal() as db:
+        latest = db.get(Trip, r.headers["location"].split("/app/trips/")[1].split("?")[0])
+        assert latest.location == "La Palma"
+
+
+def test_installable_app(client):
+    m = client.get("/manifest.webmanifest")
+    assert m.status_code == 200 and m.json()["display"] == "standalone" and m.json()["start_url"] == "/app"
+    for icon in m.json()["icons"]:
+        assert client.get(icon["src"]).status_code == 200
+    sw = client.get("/sw.js")
+    assert sw.status_code == 200 and "serviceWorker" not in sw.text and "caches" in sw.text
+    assert 'rel="manifest"' in client.get("/").text

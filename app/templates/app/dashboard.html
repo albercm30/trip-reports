@@ -1,34 +1,43 @@
 {% extends "app/base_app.html" %}
-{% block title %}{{ _('Trips') }} · {{ app_name }}{% endblock %}
+{% block title %}{{ t_('Trips') }} · {{ app_name }}{% endblock %}
 {% block main %}
+<div class="install panel" id="install-app" hidden>
+  <div><strong>{{ _('Install the app on your phone') }}</strong>
+  <p class="hint" style="margin:2px 0 0" id="install-ios" hidden>{{ _('On iPhone: tap Share, then “Add to Home Screen”.') }}</p></div>
+  <div class="row"><button type="button" class="btn small primary" id="install-btn" hidden>{{ _('Install') }}</button>
+  <button type="button" class="btn small ghost" id="install-close" aria-label="{{ _('Hide') }}">✕</button></div>
+</div>
 {% set can_edit = plans.can_write(org) %}
 {% if not cards %}
-  <h1 class="page">{{ _('Welcome, {name}', name=user.name.split(' ')[0] if user.name else '') if welcome else _('Trip reports') }}</h1>
+  <h1 class="page">{{ _('Welcome, {name}', name=user.name.split(' ')[0] if user.name else '') if welcome else t_('Trip reports') }}</h1>
   <p class="lede">{{ _('Turn your field notes and tallies into a finished report for your guests.') }}</p>
   <ol class="steps" style="grid-template-columns:1fr">
-    <li><span class="n">1</span><strong>{{ _('See what a finished report looks like') }}</strong><span>{{ _('Add an example trip, then open its Days tab to see the rough notes it came from.') }}</span></li>
+    <li><span class="n">1</span><strong>{{ _('See what a finished report looks like') }}</strong><span>{% if single_day %}{{ _('Add an example outing, then open it to see the rough notes it came from.') }}{% else %}{{ _('Add an example trip, then open its Days tab to see the rough notes it came from.') }}{% endif %}</span></li>
     <li><span class="n">2</span><strong>{{ _('Set up your company') }}</strong><span>{{ _('Logo, colour, report language and the species your guests come for.') }}</span></li>
-    <li><span class="n">3</span><strong>{{ _('Write your first real trip') }}</strong><span>{{ _('Add each day\'s notes and sightings. It saves as you type.') }}</span></li>
+    <li><span class="n">3</span><strong>{{ t_('Write your first real trip') }}</strong><span>{% if single_day %}{{ _('Add your notes and sightings. It saves as you type.') }}{% else %}{{ _('Add each day\'s notes and sightings. It saves as you type.') }}{% endif %}</span></li>
   </ol>
   {% if can_edit %}
   <div class="row">
     <form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="marine"><button class="btn primary">{{ _('Example: whale watching (Canary Islands)') }}</button></form>
     <form method="post" action="/app/demo/example"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Example: lynx & birding (Andalusia)') }}</button></form>
-    <form method="post" action="/app/trips"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Start your own trip') }}</button></form>
+    <form method="post" action="/app/trips"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ t_('Start your own trip') }}</button></form>
     <a class="btn ghost" href="/app/settings">{{ _('Company settings') }}</a>
   </div>
   {% endif %}
 {% else %}
   <div class="row" style="justify-content:space-between;margin-top:22px">
-    <h1 class="page" style="margin:0">{{ _('Trips') }}</h1>
-    {% if can_edit %}<form method="post" action="/app/trips"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ _('New trip') }}</button></form>{% endif %}
+    <h1 class="page" style="margin:0">{{ t_('Trips') }}</h1>
+    {% if can_edit %}<div class="row">
+      {% if single_day and last_real %}<form method="post" action="/app/trips/{{ last_real.id }}/repeat"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ _('Repeat last outing') }}</button></form>{% endif %}
+      <form method="post" action="/app/trips"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ t_('New trip') }}</button></form>
+    </div>{% endif %}
   </div>
   {% if not org.name or org.name == '' %}<p class="error">{{ _('Add your company name so guests know who the report is from.') }} <a href="/app/settings">{{ _('Company settings') }}</a></p>{% endif %}
   <div class="trips">
     {% for c in cards %}{% set t = c.trip %}
       <a class="trip-card" href="/app/trips/{{ t.id }}">
         <span>
-          <span class="t">{{ t.title or _('Untitled trip') }}</span>{% if t.is_demo %}<span class="tag ochre">{{ _('Demo') }}</span>{% endif %}{% if c.shared %}<span class="tag ok">{{ _('Shared') }}</span>{% endif %}<br>
+          <span class="t">{{ t.title or t_('Untitled trip') }}</span>{% if t.is_demo %}<span class="tag ochre">{{ _('Demo') }}</span>{% endif %}{% if c.shared %}<span class="tag ok">{{ _('Shared') }}</span>{% endif %}<br>
           <span class="m">{{ [t.location, t.start_date.strftime('%d/%m/%Y') if t.start_date else '']|select|join(' · ') }}{% if c.days %} · {{ _('{a} of {n} days approved', a=c.approved, n=c.days) }}{% endif %}</span>
         </span>
         <span class="n">{{ c.species }}<small>{{ _('species') }}</small></span>

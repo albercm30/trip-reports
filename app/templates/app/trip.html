@@ -1,11 +1,11 @@
 {% extends "app/base_app.html" %}
-{% block title %}{{ trip.title or _('Untitled trip') }} · {{ app_name }}{% endblock %}
+{% block title %}{{ trip.title or t_('Untitled trip') }} · {{ app_name }}{% endblock %}
 {% block main %}
-<p style="margin:18px 0 0"><a href="/app" class="hint">← {{ _('All trips') }}</a></p>
-<h1 class="page" style="margin-top:6px">{{ trip.title or _('Untitled trip') }}{% if trip.is_demo %}<span class="tag ochre">{{ _('Demo') }}</span>{% endif %}</h1>
+<p style="margin:18px 0 0"><a href="/app" class="hint">← {{ t_('All trips') }}</a></p>
+<h1 class="page" style="margin-top:6px">{{ trip.title or t_('Untitled trip') }}{% if trip.is_demo %}<span class="tag ochre">{{ _('Demo') }}</span>{% endif %}</h1>
 <nav class="tabs" aria-label="{{ _('Trip sections') }}">
-  <a href="?tab=trip" {% if tab == 'trip' %}aria-current="page"{% endif %}>{{ _('Trip') }}</a>
-  <a href="?tab=days" {% if tab == 'days' %}aria-current="page"{% endif %}>{{ _('Days') }}{% if trip.days %} ({{ trip.days|length }}){% endif %}</a>
+  <a href="?tab=trip" {% if tab == 'trip' %}aria-current="page"{% endif %}>{{ t_('Trip') }}</a>
+  <a href="?tab=days" {% if tab == 'days' %}aria-current="page"{% endif %}>{% if single_day and trip.days|length <= 1 %}{{ _('Notes & sightings') }}{% else %}{{ _('Days') }}{% if trip.days %} ({{ trip.days|length }}){% endif %}{% endif %}</a>
   <a href="?tab=report" {% if tab == 'report' %}aria-current="page"{% endif %}>{{ _('Report') }}</a>
 </nav>
 
@@ -16,7 +16,7 @@
   <button class="sr" tabindex="-1" aria-hidden="true">{{ _('Save') }}</button>
   <fieldset {% if not can_write %}disabled{% endif %} style="border:0;padding:0;margin:0">
   <div class="panel">
-    <label class="field"><span>{{ _('Trip name') }}</span><input type="text" name="title" value="{{ trip.title }}" maxlength="160" placeholder="{{ _('Iberian Lynx Weekend') }}" {% if is_new %}autofocus{% endif %}></label>
+    <label class="field"><span>{{ t_('Trip name') }}</span><input type="text" name="title" value="{{ trip.title }}" maxlength="160" placeholder="{{ _('Iberian Lynx Weekend') }}" {% if is_new %}autofocus{% endif %}></label>
     <label class="field"><span>{{ _('Where') }}</span><input type="text" name="location" value="{{ trip.location }}" maxlength="200" placeholder="Sierra de Andújar, Jaén, Spain"></label>
     <div class="grid2">
       <label class="field"><span>{{ _('First day') }}</span><input type="date" name="start_date" value="{{ trip.start_date.isoformat() if trip.start_date else '' }}"><small>{{ _('Day dates follow from this.') }}</small></label>
@@ -48,10 +48,13 @@
   </fieldset>
   <noscript><div class="row" style="margin-top:12px"><button class="btn primary">{{ _('Save') }}</button></div></noscript>
 </form>
-<form method="post" action="/app/trips/{{ trip.id }}/delete" style="margin-top:28px">
+<div class="row" style="margin-top:28px">
+{% if single_day and can_write %}<form method="post" action="/app/trips/{{ trip.id }}/repeat"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ _('Repeat this outing') }}</button></form>{% endif %}
+<form method="post" action="/app/trips/{{ trip.id }}/delete">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <button class="btn danger small" data-confirm="{{ _('Delete this trip and everything in it? This can\'t be undone.') }}">{{ _('Delete trip') }}</button>
+  <button class="btn danger small" data-confirm="{{ t_('Delete this trip and everything in it? This can\'t be undone.') }}">{{ t_('Delete trip') }}</button>
 </form>
+</div>
 {% endif %}
 
 {# ======================================================== DAYS #}
@@ -160,7 +163,7 @@
   </div>
 </details>
 {% endfor %}
-{% if can_write %}
+{% if can_write and not (single_day and trip.days) %}
 <form method="post" action="/app/trips/{{ trip.id }}/days" style="margin-top:6px">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <button class="btn primary">{{ _('Add day {n}', n=trip.days|length + 1) }}</button>

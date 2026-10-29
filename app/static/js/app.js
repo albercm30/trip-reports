@@ -310,3 +310,32 @@
     next();
   });
 })();
+
+
+/* ---------- installable app: register the service worker and offer "install" where the browser allows it */
+(function () {
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
+  }
+  var box = document.getElementById("install-app");
+  if (!box) return;
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (standalone) return;
+  try { if (localStorage.getItem("install-hidden") === "1") return; } catch (e) {}
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var btn = document.getElementById("install-btn"), iosTip = document.getElementById("install-ios");
+  var deferred = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault(); deferred = e; box.hidden = false; btn.hidden = false;
+  });
+  if (ios) { box.hidden = false; iosTip.hidden = false; }
+  btn.addEventListener("click", function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function () { box.hidden = true; deferred = null; });
+  });
+  document.getElementById("install-close").addEventListener("click", function () {
+    box.hidden = true;
+    try { localStorage.setItem("install-hidden", "1"); } catch (e) {}
+  });
+})();
